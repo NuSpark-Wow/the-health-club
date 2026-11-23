@@ -17,8 +17,9 @@
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
 const FAST_MODEL = process.env.FAST_MODEL || "claude-haiku-5-5";
-// Diagrams use the fast model so they draw quickly. To trade speed for detail, set DIAGRAM_MODEL to claude-sonnet-5-5 in Vercel.
-const DIAGRAM_MODEL = process.env.DIAGRAM_MODEL || FAST_MODEL;
+// Common moves come from the pre-drawn Diagram Library (diagrams.json). Live diagrams are only for unusual moves,
+// so they use the stronger model for better poses. To favor speed instead, set DIAGRAM_MODEL to claude-haiku-5-5 in Vercel.
+const DIAGRAM_MODEL = process.env.DIAGRAM_MODEL || MODEL;
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIVE_LIMIT || "60", 10);
 const ALLOWED = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
 
@@ -390,8 +391,9 @@ Give 3-5 sections and 1-3 myths. If off-topic, reply {"ok": false, "message": "k
 Myth or Fact Wall: create 6 cards about ${cat}. Mix them: about half myths, the rest facts or "partly true". Use statements people really hear.
 ${avoid ? "Do NOT repeat these statements:\n" + avoid : ""}
 Check each one with web search.
+IMPORTANT: "answer" judges the statement EXACTLY AS WORDED. If the statement as written is false, the answer is "myth"; if it is true, "fact"; if it is true only in part, "partly". Never mark a card "fact" for the opposite idea. Before you finish, reread each card and make sure the explanation agrees with the answer (for a myth, the explanation says why the statement is wrong).
 Shape:
-{"cards": [{"statement": "the statement as people say it", "answer": "myth" | "fact" | "partly", "explain": "2-3 sentences on what the research says", "source": {"title": "Publisher: page title", "url": "https://..."}}]}`;
+{"cards": [{"statement": "the statement as people say it", "answer": "myth" | "fact" | "partly", "explain": "2-3 sentences on what the research says, starting with why the statement is true, false or partly true", "source": {"title": "Publisher: page title", "url": "https://..."}}]}`;
   }
 
   if (mode === "debate") {
@@ -630,7 +632,7 @@ module.exports = async (req, res) => {
       const cards = (Array.isArray(j.cards) ? j.cards : []).slice(0, 6).map(c => {
         const src = c && c.source ? verifySources([c.source], retrieved) : [];
         return { statement: clip(c && c.statement, 200), answer: oneOf(String(c && c.answer || "").toLowerCase(), ["myth", "fact", "partly"], "partly"), explain: clip(c && c.explain, 600), source: src[0] || null };
-      }).filter(c => c.statement && c.explain);
+      }).filter(c => c.statement && c.explain && !/opposite idea|statement is actually the myth|marked (as )?fact for/i.test(c.explain));
       if (!cards.length) return res.status(200).json({ ok: false, message: "The wall is being repainted. Tap New Cards to try again." });
       return res.status(200).json({ ok: true, cards });
     }
