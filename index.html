@@ -651,29 +651,59 @@ function normName(s){
   return w.join(" ");
 }
 const diagMem = {};
-function getDiagram(name, kind, hint){
-  const key = (name + "|" + kind + "|" + state.zone).toLowerCase();
+function libHit(L, name){
+  if (!L || !L.d) return null;
+  const k = normName(name), hit = L.d[k] ? k : (L.a && L.a[k]);
+  return hit && L.d[hit] ? hit : null;
+}
+function libSimilar(L, name){  // a library move whose name sits inside this one, e.g. "Chair sit-to-stand" -> "Sit-to-stand"
+  if (!L || !L.d) return null;
+  const n = " " + normName(name) + " ";
+  let best = null, bestLen = 0;
+  for (const key of [...Object.keys(L.d), ...Object.keys(L.a || {})]) {
+    if (key.length > bestLen && key.length > 3 && n.includes(" " + key + " ")) { best = L.d[key] ? key : L.a[key]; bestLen = key.length; }
+  }
+  return best && L.d[best] ? best : null;
+}
+// opts.closest: a library move name the AI picked as closest; opts.live: draw this exact move with AI (slow)
+function getDiagram(name, kind, hint, opts){
+  opts = opts || {};
+  const key = [name, kind, state.zone, opts.closest || "", opts.live ? "live" : ""].join("|").toLowerCase();
   if (!diagMem[key]) diagMem[key] = diagramLibrary().then(L => {
-    if (L && L.d) {
-      const k = normName(name), hit = L.d[k] ? k : (L.a && L.a[k]);
-      if (hit && L.d[hit]) return { ok: true, svg: L.d[hit].svg, caption: L.d[hit].caption, library: true };
+    if (!opts.live) {
+      const hit = libHit(L, name);
+      if (hit) return { ok: true, svg: L.d[hit].svg, caption: L.d[hit].caption, library: true };
+      const sim = libSimilar(L, name) || (opts.closest && libHit(L, opts.closest));
+      if (sim) return { ok: true, svg: L.d[sim].svg, caption: "Closest diagram: " + L.d[sim].title + ". The movement pattern is very similar.", library: true, similar: L.d[sim].title };
+      return { ok: false, none: true };
     }
     return api({ mode: "diagram", name, kind, hint: hint || "" });
-  }).then(j => { if (!j.ok) { delete diagMem[key]; } return j; }).catch(e => { delete diagMem[key]; throw e; });
+  }).then(j => { if (!j.ok && !j.none) { delete diagMem[key]; } return j; }).catch(e => { delete diagMem[key]; throw e; });
   return diagMem[key];
 }
-function diagramEl(name, kind, hint, small){
+function libraryNames(){ return diagramLibrary().then(L => L && L.d ? Object.values(L.d).map(x => x.title) : []); }
+function diagramEl(name, kind, hint, small, opts){
+  opts = opts || {};
   const box = el("div", { class: "diagram" });
-  const load = () => {
-    box.innerHTML = ""; box.append(loadingEl(small ? "Drawing " + name + "…" : "Coach Mike is drawing the diagram…", ["New moves are drawn fresh, so this can take up to a minute…", "Getting the pose just right…"]));
-    getDiagram(name, kind, hint).then(j => {
-      box.innerHTML = "";
-      if (!j.ok) { box.append(el("div", { class: "ph", text: j.message || "The diagram didn't come out right." }), el("button", { class: "btn ghost noprint", type: "button", onclick: load }, "Try Again")); return; }
-      const img = el("img", { alt: "Diagram: " + (j.caption || name), src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(j.svg) });
-      box.append(img, el("div", { class: "cap", text: small ? name : (j.caption || "") }));
-    }).catch(e => { box.innerHTML = ""; box.append(el("div", { class: "ph", text: e.message }), el("button", { class: "btn ghost noprint", type: "button", onclick: load }, "Try Again")); });
+  const drawLive = () => {
+    box.innerHTML = ""; box.append(loadingEl("Coach Mike is drawing " + name + " from scratch…", ["Custom drawings take about 1-2 minutes…", "Getting the pose just right…", "Almost there…"]));
+    getDiagram(name, kind, hint, { live: true }).then(show).catch(e => { box.innerHTML = ""; box.append(el("div", { class: "ph", text: e.message }), el("button", { class: "btn ghost noprint", type: "button", onclick: drawLive }, "Try Again")); });
   };
-  load();
+  const liveBtn = label => el("button", { class: "btn ghost noprint", type: "button", style: "margin:6px auto 2px;padding:8px 14px;font-size:14px", onclick: drawLive }, label);
+  function show(j){
+    box.innerHTML = "";
+    if (j.none) {
+      if (small || opts.quiet) { box.remove(); return; }
+      box.append(el("div", { class: "ph", text: "No ready-made diagram for this move yet." }), liveBtn("✏️ Draw This Exact Move (about 1-2 minutes)"));
+      return;
+    }
+    if (!j.ok) { box.append(el("div", { class: "ph", text: j.message || "The diagram didn't come out right." }), liveBtn("Try Again")); return; }
+    box.append(el("img", { alt: "Diagram: " + (j.caption || name), src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(j.svg) }),
+      el("div", { class: "cap", text: small ? (j.similar ? name + " (similar move: " + j.similar + ")" : name) : (j.caption || "") }));
+    if (j.similar && !small) box.append(liveBtn("✏️ Draw This Exact Move Instead (about 1-2 minutes)"));
+  }
+  box.append(loadingEl(small ? "Finding a diagram for " + name + "…" : "Finding the diagram…"));
+  getDiagram(name, kind, hint, opts).then(show).catch(e => { box.innerHTML = ""; box.append(el("div", { class: "ph", text: e.message }), liveBtn("Try Again")); });
   return box;
 }
 
@@ -682,14 +712,14 @@ function lessonView(name, kind, room){
   const v = { room, bar: name, kind: room, restart: () => { v.data = null; v.err = null; paint(v); run(); } };
   v.data = null;
   async function run(){
-    try { v.data = await api({ mode: kind === "machine" ? "machine" : "exercise", name }); } catch(e){ v.err = e.message; }
+    try { const libNames = await libraryNames(); v.data = await api({ mode: kind === "machine" ? "machine" : "exercise", name, libNames }); } catch(e){ v.err = e.message; }
     if (state.view === v) paint(v);
   }
   v.render = d => {
     d.append(el("div", { class: "printonly brandline" }, el("b", { text: "The Health Club · NuSparkLearnWow.com" })));
     if (v.err) { d.append(el("h2", { class: "vt", text: name }), errEl(v.err)); return; }
     if (!v.data) {
-      d.append(el("h2", { class: "vt", text: name }), diagramEl(name, kind === "machine" ? "machine" : /stretch|pose|twist|roll|circle|cat-cow|reach/i.test(name) ? "stretch" : "exercise"),
+      d.append(el("h2", { class: "vt", text: name }), diagramEl(name, kind === "machine" ? "machine" : /stretch|pose|twist|roll|circle|cat-cow|reach/i.test(name) ? "stretch" : "exercise", "", false, { quiet: true }),
         loadingEl("Coach Mike is researching " + name + "…", ["Checking trusted sources…", "Writing the steps…", "Listing common mistakes…", "Finding easier and harder versions…"]));
       return;
     }
@@ -700,7 +730,7 @@ function lessonView(name, kind, room){
       el("h2", { class: "vt", text: j.title }),
       el("div", {}, (j.muscles || []).map(m => el("span", { class: "pill", text: m })), j.equipment ? el("span", { class: "pill c", text: j.equipment }) : null),
       el("p", { class: "lead", text: j.what }),
-      diagramEl(name, dk)
+      diagramEl(name, dk, "", false, { closest: j.closestDiagram || "" })
     );
     if (j.setup && j.setup.length) d.append(el("h3", { text: "⚙️ Set it up first" }), el("ol", { class: "steps" }, j.setup.map(s => el("li", {}, s))));
     d.append(el("h3", { text: "👣 How to do it" }), el("ol", { class: "steps" }, j.steps.map(s => el("li", {}, el("b", { text: s.title }), s.text))));
