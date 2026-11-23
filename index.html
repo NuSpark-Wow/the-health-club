@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- LearnWow member pass (do not remove): gets the member pass from nusparklearnwow.com and shows the Join screen when a visitor runs out of tries -->
+<script>
+(function () {
+  if (window.__lwgate) return; window.__lwgate = 1;
+  var JOIN = "https://nusparklearnwow.com/join/", LOGIN = "https://nusparklearnwow.com/membership-login/";
+  var LW = { pass: null, vid: "" };
+  try { LW.vid = localStorage.getItem("lw_vid") || ""; if (!LW.vid) { LW.vid = (Date.now().toString(36) + Math.random().toString(36).slice(2, 12)); localStorage.setItem("lw_vid", LW.vid); } }
+  catch (e) { LW.vid = "s" + Math.random().toString(36).slice(2, 12); }
+  var okHost = /(^|\.)(nusparklearnwow|nusparkpublishing|nusparkmarketing)\.com$/;
+  var ready = new Promise(function (done) {
+    if (window.parent === window) return done();
+    var fin = false, end = function () { if (!fin) { fin = true; done(); } };
+    window.addEventListener("message", function (e) {
+      var d = e.data; if (!d || d.type !== "lw-pass") return;
+      try { if (!okHost.test(new URL(e.origin).hostname)) return; } catch (x) { return; }
+      LW.pass = d.pass || null;
+      if (d.vid && /^[a-z0-9]{6,40}$/i.test(d.vid)) LW.vid = "w" + d.vid;
+      end();
+    });
+    try { window.parent.postMessage({ type: "lw-pass-request" }, "*"); } catch (x) {}
+    setTimeout(end, 1500);
+  });
+
+  var lastAct = 0;
+  ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { window.addEventListener(ev, function (e) { if (e.isTrusted) lastAct = Date.now(); }, true); });
+
+  var shown = false;
+  function show(j) {
+    if (shown) return; shown = true;
+    var reason = j && j.lwgate;
+    var title = reason === "budget" ? "You've reached this month's limit" : reason === "preview" ? "This is a members feature" : "You've used your tries";
+    var text = reason === "budget"
+      ? "Your membership has hit its monthly usage limit. It resets at the start of next month. Questions? Contact us at nusparklearnwow.com/support."
+      : "Join LearnWow to unlock all 24+ experiences. 7-day trial, then $29.99/month. Cancel anytime.";
+    var box = document.createElement("div");
+    box.setAttribute("style", "position:fixed;inset:0;z-index:2147483647;background:rgba(10,25,60,.72);display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif");
+    var btn = "display:inline-block;margin:6px;padding:14px 28px;border-radius:40px;font-weight:800;font-size:17px;text-decoration:none;";
+    box.innerHTML =
+      '<div style="background:#123166;color:#fff;max-width:440px;width:100%;border-radius:22px;padding:30px 26px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.35)">' +
+      '<div style="font-size:40px;line-height:1;color:#F2B33D">&#10022;</div>' +
+      '<div style="font-size:24px;font-weight:800;margin:10px 0 8px">' + title + '</div>' +
+      '<div style="font-size:16px;line-height:1.5;opacity:.92;margin-bottom:18px">' + text + '</div>' +
+      (reason === "budget" ? "" : '<a target="_top" href="' + JOIN + '" style="' + btn + 'background:#F2B33D;color:#123166">Join Now</a>') +
+      '<a target="_top" href="' + LOGIN + '" style="' + btn + 'background:transparent;color:#fff;border:2px solid rgba(255,255,255,.6)">Member Log In</a>' +
+      '<div><button type="button" style="margin-top:10px;background:none;border:0;color:#cfd8ef;font-size:14px;cursor:pointer;text-decoration:underline">Keep looking around</button></div>' +
+      "</div>";
+    box.querySelector("button").onclick = function () { box.remove(); shown = false; };
+    (document.body || document.documentElement).appendChild(box);
+  }
+
+  // Tries left: a small note for visitors ("3 of 8 tries left"), plus a friendly heads-up on the last one.
+  var nudged = false;
+  function tries(left, total) {
+    if (!(left >= 0)) return;
+    var el = document.getElementById("lwTries");
+    if (!el) {
+      el = document.createElement("div"); el.id = "lwTries";
+      el.setAttribute("style", "position:fixed;left:12px;bottom:12px;z-index:2147483646;background:#123166;color:#fff;border:2px solid #F2B33D;border-radius:999px;padding:7px 12px 7px 14px;font:600 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.3);display:flex;gap:8px;align-items:center");
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.innerHTML = '<span>&#10022; ' + left + (total ? ' of ' + total : '') + ' tr' + (left === 1 ? 'y' : 'ies') + ' left</span><a target="_top" href="' + JOIN + '" style="color:#F2B33D;font-weight:800;text-decoration:none">Join</a><button type="button" aria-label="Hide" style="background:none;border:0;color:#cfd8ef;font-size:15px;cursor:pointer;padding:0 0 0 2px">&times;</button>';
+    el.querySelector("button").onclick = function () { el.remove(); };
+    if (left === 1 && !nudged) {
+      nudged = true;
+      var n = document.createElement("div");
+      n.setAttribute("style", "position:fixed;left:12px;bottom:58px;z-index:2147483646;max-width:300px;background:#fff;color:#123166;border-radius:14px;padding:12px 14px;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 10px 26px rgba(0,0,0,.3);border-top:4px solid #F2B33D");
+      n.innerHTML = '<b>One try left!</b><br>Members get every one of the 24+ experiences, with no limits. Start with a 7-day trial and cancel anytime.<div style="margin-top:8px"><a target="_top" href="' + JOIN + '" style="background:#F2B33D;color:#123166;font-weight:800;padding:7px 14px;border-radius:999px;text-decoration:none">See membership</a> <button type="button" style="background:none;border:0;color:#123166;text-decoration:underline;cursor:pointer;font-size:13px">Got it</button></div>';
+      n.querySelector("button").onclick = function () { n.remove(); };
+      (document.body || document.documentElement).appendChild(n);
+      setTimeout(function () { if (n.parentNode) n.remove(); }, 15000);
+    }
+  }
+
+  var of = window.fetch && window.fetch.bind(window);
+  if (!of) return;
+  window.fetch = function (input, init) {
+    var url = typeof input === "string" ? input : (input && input.url) || String(input || "");
+    var u; try { u = new URL(url, location.href); } catch (e) { return of(input, init); }
+    if (u.origin !== location.origin || u.pathname.indexOf("/api/") !== 0) return of(input, init);
+    var act = Date.now() - lastAct < 30000;
+    return ready.then(function () {
+      var o = {}; if (init) for (var k in init) o[k] = init[k];
+      var hd = new Headers(o.headers || (typeof input !== "string" && input && input.headers) || undefined);
+      if (LW.pass) hd.set("x-lw-pass", LW.pass);
+      hd.set("x-lw-vid", LW.vid);
+      if (act) hd.set("x-lw-act", "1");
+      o.headers = hd;
+      return of(input, o);
+    }).then(function (r) {
+      if (r.status === 402) r.clone().json().then(function (j) { if (j && j.lwgate) show(j); }).catch(function () {});
+      try { var tl = r.headers.get("x-lw-left"); if (tl !== null && r.status !== 402) tries(parseInt(tl, 10), parseInt(r.headers.get("x-lw-total") || "0", 10)); } catch (e) {}
+      return r;
+    });
+  };
+})();
+</script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Health Club | Learn...Wow! | NuSparkLearnWow</title>
+<meta name="description" content="Learn how to exercise, stretch, use gym machines, read food labels and build healthy habits, with diagrams, two friendly coaches, myth-busting and expert debates.">
+<meta property="og:title" content="The Health Club | Wow...Who Knew?">
+<meta property="og:description" content="Exercise how-tos with diagrams, a Body Map, a Label Reader, a Nutrition Corner, Myth or Fact and The Great Debate. From NuSparkLearnWow.com.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1f2a44; --soft:#5d6677; --teal:#0f8f7a; --teal-dk:#0b5a4c; --teal-lt:#e3f4f0; --coral:#ff6f59; --coral-dk:#c94a37; --coral-lt:#ffe9e4;
+  --sun:#f6b93b; --plum:#6a4fb3; --wall:#f4f7f6; --card:#ffffff; --line:#dbe5e2;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Nunito,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--wall);line-height:1.5}
+button,input,textarea,select{font-family:inherit}
+a{color:var(--teal-dk)}
+.top{text-align:center;padding:22px 16px 12px}
+.top h1{font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:clamp(32px,6.5vw,58px);margin:0;letter-spacing:1px;line-height:1.05;text-transform:uppercase}
+.top h1 .a{color:var(--teal)} .top h1 .b{color:var(--coral)}
+.top .tagline{margin:6px auto 0;max-width:700px;color:var(--soft);font-size:17px;font-weight:700}
+.banner{display:flex;gap:6px;overflow:hidden;height:150px;background:var(--teal-dk)}
+.banner figure{margin:0;flex:1 1 0;min-width:110px;position:relative;overflow:hidden;background:#127a68}
+.banner img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .6s}
+.banner img.on{opacity:1}
+.banner figcaption{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.65))}
+@media(max-width:700px){.banner{height:96px}.banner figure:nth-child(n+5){display:none}}
+.club{max-width:1100px;margin:0 auto;padding:16px 14px 6px}
+.panel{background:var(--card);border-radius:22px;box-shadow:0 10px 30px rgba(15,60,50,.10);border:2px solid var(--line);overflow:hidden}
+.pbar{display:flex;justify-content:space-between;align-items:center;gap:10px;background:linear-gradient(90deg,var(--teal-dk),var(--teal));color:#fff;padding:10px 18px;font-weight:800;font-size:14px;letter-spacing:.6px;text-transform:uppercase}
+.pbar .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--coral);margin-right:8px;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.display{padding:18px 20px 24px;min-height:360px}
+@media(max-width:560px){.display{padding:14px 12px 20px}}
+h2.vt{font-family:Oswald,Impact,sans-serif;font-size:clamp(24px,4vw,34px);margin:4px 0 6px;letter-spacing:.4px;color:var(--teal-dk);text-transform:uppercase;line-height:1.15}
+h3{font-size:19px;margin:18px 0 6px;color:var(--teal-dk)}
+.lead{font-size:17px;color:var(--soft);margin:0 0 10px;font-weight:600}
+.ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.ctrl button{border:0;background:var(--teal-lt);color:var(--ink);font-weight:800;font-size:14px;padding:7px 14px;border-radius:30px;cursor:pointer}
+.ctrl button.stop{background:#fde3dd;color:#8c2a14}
+.ctrl button[disabled]{opacity:.4;pointer-events:none}
+body:not(.working) .ctrl button.stop{opacity:.4;pointer-events:none}
+.zones{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 18px}
+@media(max-width:760px){.zones{grid-template-columns:repeat(2,1fr)}}
+.zone{border:3px solid var(--line);background:#fff;border-radius:18px;padding:12px 10px;cursor:pointer;text-align:center;font-weight:900;font-size:16px;color:var(--ink)}
+.zone .em{display:block;font-size:34px;line-height:1.1}
+.zone small{display:block;font-weight:700;color:var(--soft);font-size:13px}
+.zone.on{border-color:var(--teal);background:var(--teal-lt)}
+.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.room{border:0;text-align:left;background:linear-gradient(160deg,#fff,#f2faf8);border:2px solid var(--line);border-radius:18px;padding:14px;cursor:pointer;color:var(--ink);transition:transform .15s,box-shadow .15s}
+.room:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,60,50,.12);border-color:var(--teal)}
+.room .em{font-size:32px;line-height:1}
+.room b{display:block;font-family:Oswald,Impact,sans-serif;font-size:21px;letter-spacing:.3px;text-transform:uppercase;margin:6px 0 2px;color:var(--teal-dk)}
+.room span{display:block;font-size:14.5px;color:var(--soft);font-weight:600}
+.room .pill{display:inline-block;color:#fff;font-size:12px;font-weight:900;margin:0 0 4px}
+.room i{display:block;font-style:normal;font-size:12.5px;font-weight:800;color:var(--coral-dk);margin-top:6px;letter-spacing:.4px;text-transform:uppercase}
+.coaches{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 14px}
+.mate{display:flex;align-items:center;gap:8px;background:#f6faf9;border:2px solid var(--line);border-radius:40px;padding:5px 14px 5px 5px;font-weight:800;font-size:15px}
+.mate small{display:block;font-weight:700;color:var(--soft);font-size:12px;line-height:1.1}
+.av{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;color:#fff;font-size:20px;flex:none}
+.inrow{display:flex;gap:8px;flex-wrap:wrap}
+.inrow input,.inrow textarea{flex:1 1 260px;font-size:17px;padding:12px 14px;border:2px solid var(--line);border-radius:14px;min-width:0}
+.inrow input:focus,.inrow textarea:focus,.qbox textarea:focus{outline:none;border-color:var(--teal)}
+.ex{font-size:14px;color:var(--soft);margin:2px 0 6px;font-weight:600}
+.btn{border:0;background:var(--coral);color:#fff;font-weight:900;font-size:16px;padding:12px 20px;border-radius:30px;cursor:pointer;box-shadow:0 4px 0 var(--coral-dk)}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--coral-dk)}
+.btn.alt{background:var(--teal);box-shadow:0 4px 0 var(--teal-dk)}
+.btn.ghost{background:#fff;color:var(--teal-dk);border:2px solid var(--teal);box-shadow:none}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.chips button{border:0;background:var(--teal-lt);color:var(--teal-dk);font-weight:800;font-size:14.5px;padding:8px 13px;border-radius:30px;cursor:pointer}
+.chips button:hover,.chips button.on{background:var(--teal);color:#fff}
+.grp{margin:10px 0 2px;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--soft);font-weight:900}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 10px}
+.tabs button{flex:1 1 150px;border:3px solid var(--line);background:#fff;color:var(--ink);font-family:Oswald,Impact,sans-serif;font-weight:700;font-size:17px;letter-spacing:.3px;text-transform:uppercase;padding:9px 10px;border-radius:14px;cursor:pointer}
+.tabs button.on{border-color:var(--teal);background:var(--teal);color:#fff}
+.loading{display:flex;align-items:center;gap:12px;padding:18px;border-radius:16px;background:#f6faf9;border:2px dashed var(--line);font-weight:800;color:var(--teal-dk);margin:10px 0}
+.loading .pulse{width:26px;height:26px;flex:none;color:var(--coral);animation:beat 1s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}30%{transform:scale(1.25)}60%{transform:scale(.95)}}
+.err{background:#fde3dd;color:#8c2a14;border-radius:14px;padding:12px 14px;font-weight:700;margin:10px 0}
+.card{background:#fff;border:2px solid var(--line);border-radius:16px;padding:14px 16px;margin:10px 0}
+.card.tip{background:#fff8e6;border-color:var(--sun)}
+.card.safe{background:var(--coral-lt);border-color:#f7b9ad}
+.card.good{background:var(--teal-lt);border-color:#b7e2d8}
+.pill{display:inline-block;font-size:12px;font-weight:900;letter-spacing:1px;text-transform:uppercase;border-radius:20px;padding:2px 10px;background:var(--teal);color:#fff;margin:0 6px 6px 0}
+.pill.c{background:var(--coral)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:6px 0}
+.steps li{counter-increment:s;position:relative;padding:8px 0 8px 46px;border-bottom:1px dashed var(--line)}
+.steps li::before{content:counter(s);position:absolute;left:0;top:8px;width:32px;height:32px;border-radius:50%;background:var(--teal);color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center}
+.steps li b{display:block}
+ul.tidy{margin:6px 0;padding-left:20px} ul.tidy li{margin:4px 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.two{grid-template-columns:1fr}}
+.diagram{background:#fff;border:2px solid var(--line);border-radius:16px;padding:8px;margin:10px 0;text-align:center}
+.diagram img{max-width:100%;height:auto;display:block;margin:0 auto}
+.diagram .cap{font-size:14px;color:var(--soft);margin:6px 4px 2px;font-weight:600}
+.diagram .ph{padding:40px 10px;color:var(--soft);font-weight:800}
+.qbox{background:#f6faf9;border:2px solid var(--line);border-radius:16px;padding:12px;margin:16px 0 8px}
+.qbox textarea{width:100%;min-height:74px;font-size:16px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;resize:vertical}
+.qbox .who{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px}
+.qbox .who button{border:2px solid var(--line);background:#fff;font-weight:800;font-size:14px;padding:6px 12px;border-radius:30px;cursor:pointer}
+.qbox .who button.on{border-color:var(--teal);background:var(--teal);color:#fff}
+.say{display:flex;gap:10px;align-items:flex-start;margin:10px 0}
+.say .bub{background:#fff;border:2px solid var(--line);border-radius:16px;padding:10px 14px;flex:1;min-width:0;word-wrap:break-word}
+.say .bub b{display:block;font-size:13px;letter-spacing:.8px;text-transform:uppercase;margin-bottom:2px}
+.say.me{flex-direction:row-reverse}.say.me .bub{background:var(--teal-lt)}
+.fn{font-size:14px;color:var(--soft);margin-top:14px}
+.fn ol{margin:0;padding-left:20px}.fn li{margin:2px 0;word-break:break-word}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+.foot-note{font-size:13.5px;color:var(--soft);font-weight:700;margin-top:10px}
+/* body map */
+.bm{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:16px;align-items:start}
+@media(max-width:700px){.bm{grid-template-columns:1fr}}
+.bmfig{background:#f6faf9;border:2px solid var(--line);border-radius:18px;padding:10px;text-align:center}
+.bmfig svg{width:100%;max-width:300px;height:auto}
+.bmfig .z{fill:var(--coral);fill-opacity:.18;stroke:var(--coral-dk);stroke-opacity:.5;stroke-width:1.5;cursor:pointer;transition:fill-opacity .15s}
+.bmfig .z:hover,.bmfig .z:focus{fill-opacity:.5;outline:none}
+.bmfig .z.on{fill-opacity:.75}
+.bmlist{display:flex;flex-wrap:wrap;gap:6px}
+.bmfig .tabs button{flex:1 1 0;padding:7px 8px;font-size:16px}
+/* myth wall */
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.mcard{background:#fff;border:3px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.mcard .st{font-weight:900;font-size:17px;line-height:1.35}
+.mcard .opts{display:flex;gap:6px;flex-wrap:wrap}
+.mcard .opts button{flex:1;border:2px solid var(--line);background:#fff;font-weight:900;font-size:14px;padding:8px 6px;border-radius:12px;cursor:pointer}
+.mcard.right{border-color:var(--teal)}.mcard.wrong{border-color:var(--coral)}
+.mcard .verdict{font-weight:900;font-size:13px;letter-spacing:1px;text-transform:uppercase}
+.score{font-family:Oswald,Impact,sans-serif;font-size:22px;color:var(--teal-dk);margin:6px 0}
+/* debate */
+.stage{background:linear-gradient(180deg,#123b35,#0b2622);border-radius:18px;padding:14px;color:#fff;margin:10px 0}
+.podiums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+@media(max-width:600px){.podiums{grid-template-columns:1fr}}
+.pod{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center;transition:all .2s}
+.pod.talk{border-color:var(--sun);background:rgba(246,185,59,.18)}
+.pod b{display:block;font-size:14px}.pod small{display:block;font-size:12.5px;opacity:.85;line-height:1.25}
+.dline{background:#fff;color:var(--ink);border-radius:14px;padding:10px 14px;margin:8px 0;animation:fade .4s ease}
+.dline .nm{font-weight:900;font-size:13px;letter-spacing:.8px;text-transform:uppercase}
+.rnd{text-align:center;font-family:Oswald,Impact,sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--sun);margin:12px 0 4px;font-size:18px}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.chart{background:#fff;color:var(--ink);border-radius:14px;padding:12px 14px;margin:10px 0}
+.chart .t{font-weight:900}.chart .bar{display:grid;grid-template-columns:minmax(90px,30%) 1fr auto;gap:8px;align-items:center;margin:6px 0;font-size:14px;font-weight:700}
+.chart .track{background:#eef3f2;border-radius:8px;height:18px;overflow:hidden}.chart .fill{height:100%;background:linear-gradient(90deg,var(--teal),#3cc4a8);border-radius:8px}
+.chart .src{font-size:12.5px;color:var(--soft);margin-top:6px}
+.votes{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.votes button{flex:1 1 160px;border:0;background:var(--sun);color:var(--ink);font-weight:900;font-size:15px;padding:10px 12px;border-radius:14px;cursor:pointer}
+/* planning desk + printables */
+.form .q{margin:12px 0}.form .q>b{display:block;margin-bottom:4px}
+.form input[type=text]{width:100%;font-size:16px;padding:10px 12px;border:2px solid var(--line);border-radius:12px}
+.pdoc{background:#fff;border:2px solid var(--line);border-radius:12px;padding:20px 22px;margin:12px 0}
+.pdoc .phead{display:flex;gap:4px;height:70px;overflow:hidden;border-radius:10px;margin-bottom:12px}
+.pdoc .phead img{flex:1 1 0;min-width:0;object-fit:cover;height:100%}
+.pdoc h2{font-family:Oswald,Impact,sans-serif;color:var(--teal-dk);text-transform:uppercase;margin:4px 0;font-size:28px}
+.pdoc .brand{font-weight:900;color:var(--coral-dk);font-size:13px;letter-spacing:1px;text-transform:uppercase}
+.pdoc table{width:100%;border-collapse:collapse;margin:8px 0;font-size:14.5px}
+.pdoc th,.pdoc td{border:1px solid #cfdcd8;padding:6px 8px;text-align:left;vertical-align:top}
+.pdoc th{background:var(--teal-lt)}
+.pdoc .box{display:inline-block;width:16px;height:16px;border:2px solid var(--teal-dk);border-radius:3px;vertical-align:middle;margin-right:6px}
+.cal{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+@media(max-width:560px){.cal{grid-template-columns:repeat(3,1fr)}}
+.cal div{border:2px solid #cfdcd8;border-radius:10px;padding:6px;font-size:13px;min-height:70px}
+.cal div b{display:block;color:var(--teal-dk)}
+.dgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(max-width:600px){.dgrid{grid-template-columns:1fr}}
+.dgrid .diagram{margin:0;break-inside:avoid}
+.pfoot{border-top:2px solid var(--line);margin-top:14px;padding-top:8px;font-size:12.5px;color:var(--soft);font-weight:700}
+/* label reader */
+.drop{border:3px dashed var(--line);border-radius:18px;padding:22px;text-align:center;background:#f6faf9}
+.drop img{max-width:100%;max-height:340px;border-radius:10px;margin-top:10px}
+.lt{width:100%;border-collapse:collapse;font-size:15px}.lt td{border-bottom:1px solid var(--line);padding:8px 6px;vertical-align:top}.lt td:first-child{font-weight:900;width:32%}
+/* Mr. Paul host */
+.mphost{display:flex;align-items:center;gap:14px;max-width:1100px;margin:22px auto 4px;padding:0 14px}
+.mphost .mpfig{width:96px;flex:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
+.mphost .mpfig svg{width:100%;height:auto;display:block}
+.mphost .mpbub{position:relative;background:#fff;color:var(--ink);border:2px solid var(--coral);border-radius:16px;padding:10px 16px;font-weight:700;font-size:16px;line-height:1.35;max-width:400px}
+.mphost .mpbub::before{content:"";position:absolute;left:-11px;top:50%;margin-top:-9px;border:9px solid transparent;border-right-color:var(--coral);border-left:0}
+.mphost .mpbub::after{content:"";position:absolute;left:-7px;top:50%;margin-top:-7px;border:7px solid transparent;border-right-color:#fff;border-left:0}
+@media(max-width:560px){.mphost .mpfig{width:74px}.mphost .mpbub{font-size:15px}}
+footer{max-width:1100px;margin:10px auto 30px;padding:14px;font-size:13.5px;color:var(--soft);border-top:2px solid var(--line)}
+footer p{margin:6px 0}
+footer .edu{font-weight:900;color:var(--coral-dk)}
+.printonly{display:none}
+@media print{
+  .top,.banner,.mphost,footer,.noprint,.ctrl,.qbox{display:none !important}
+  body{background:#fff}.panel{border:0;box-shadow:none}.pbar{display:none}.display{padding:0}
+  .printonly{display:block}
+  .card,.diagram,.steps li,.pdoc table,.cal div{break-inside:avoid}
+  .pdoc{border:0;padding:0;margin:0}
+  .stage{background:#fff;color:var(--ink);border:1px solid #ccc}.pod{border-color:#ccc}.dline{border:1px solid #ddd}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1><span class="a">The Health</span> <span class="b">Club</span></h1>
+  <p class="tagline">Learn to move, stretch, eat and feel your best, with diagrams, friendly coaches and myth-busting. Wow...Who Knew?</p>
+</header>
+
+<div class="banner" id="banner" aria-hidden="true"></div>
+
+<main class="club">
+  <div class="panel">
+    <div class="pbar"><span><span class="dot"></span><span id="barLeft">The Lobby</span></span><span id="barRight">Open Daily</span></div>
+    <div class="display" id="display" aria-live="polite"></div>
+  </div>
+</main>
+
+<!-- Mr. Paul, the club host (cartoon drawn in code) -->
+<div class="mphost" role="note" aria-label="Mr. Paul says: Welcome to The Health Club! Pick your zone and let's get moving."><div class="mpfig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -12 320 392" class="mph-svg" aria-hidden="true"><defs><linearGradient id="hc-skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d2bb"></stop><stop offset="1" stop-color="#eebc9f"></stop></linearGradient><linearGradient id="hc-coat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18a58c"></stop><stop offset="1" stop-color="#0f7a67"></stop></linearGradient><linearGradient id="hc-lens" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d8dde0" stop-opacity=".45"></stop><stop offset="1" stop-color="#aeb6bc" stop-opacity=".3"></stop></linearGradient><linearGradient id="hc-glens" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6f6ff"></stop><stop offset=".6" stop-color="#a9d8f2"></stop><stop offset="1" stop-color="#7fbfe3"></stop></linearGradient></defs><path d="M40 380 C44 318 78 290 122 282 L160 300 L198 282 C242 290 276 318 280 380 Z" fill="url(#hc-coat)" stroke="#0b5a4c" stroke-width="3"></path><path d="M160 302 L204 288 C212 324 212 356 210 380 L150 380 Z" fill="#14937c" stroke="#0b5a4c" stroke-width="2.5"></path><g fill="#e8eef5"><circle cx="172" cy="322" r="4.5"></circle><circle cx="196" cy="322" r="4.5"></circle><circle cx="172" cy="350" r="4.5"></circle><circle cx="196" cy="350" r="4.5"></circle></g><rect x="70" y="330" width="56" height="22" rx="4" fill="#c99a2e"></rect><text x="98" y="345.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#1f2a44">Mr. Paul</text><path d="M126 282 Q160 304 194 282 L190 298 Q160 318 130 298 Z" fill="#0d6b5a" stroke="#094a3f" stroke-width="2"></path><path d="M152 304 L168 304 L174 326 L160 318 L146 326 Z" fill="#0d6b5a" stroke="#094a3f" stroke-width="2"></path><!-- neck --><path d="M134 240 L136 290 Q160 304 184 290 L186 240 Z" fill="#e8b294"></path><!-- side hair (behind head), soft and fluffy --><g fill="#dedad2"><ellipse cx="82" cy="130" rx="14" ry="22"></ellipse><ellipse cx="78" cy="152" rx="18" ry="30"></ellipse><ellipse cx="76" cy="182" rx="14" ry="24"></ellipse><ellipse cx="88" cy="206" rx="12" ry="16"></ellipse><ellipse cx="238" cy="130" rx="14" ry="22"></ellipse><ellipse cx="242" cy="152" rx="18" ry="30"></ellipse><ellipse cx="244" cy="182" rx="14" ry="24"></ellipse><ellipse cx="232" cy="206" rx="12" ry="16"></ellipse></g><g stroke="#c2bdb3" stroke-width="1.8" fill="none" stroke-linecap="round"><path d="M70 132 C64 150 64 170 70 190"></path><path d="M78 140 C74 160 74 184 82 206"></path><path d="M66 124 C62 118 60 112 61 106"></path><path d="M250 132 C256 150 256 170 250 190"></path><path d="M242 140 C246 160 246 184 238 206"></path><path d="M254 124 C258 118 260 112 259 106"></path></g><!-- ears --><ellipse cx="82" cy="168" rx="13" ry="20" fill="#eab597"></ellipse><ellipse cx="238" cy="168" rx="13" ry="20" fill="#eab597"></ellipse><path d="M84 158 Q78 168 85 178" stroke="#cf957a" stroke-width="2.5" fill="none" stroke-linecap="round"></path><path d="M236 158 Q242 168 235 178" stroke="#cf957a" stroke-width="2.5" fill="none" stroke-linecap="round"></path><!-- head --><path d="M160 42 C216 42 240 86 240 142 C240 210 214 254 160 254 C106 254 80 210 80 142 C80 86 104 42 160 42 Z" fill="url(#hc-skin)"></path><!-- thinning hair on top --><path d="M90 118 C88 74 116 46 160 44 C204 46 232 74 230 118 C222 96 206 82 186 80 C176 70 146 70 134 80 C114 82 98 96 90 118 Z" fill="#d6d1c8"></path><g stroke="#b3ada2" stroke-width="2" fill="none" stroke-linecap="round"><path d="M110 84 C122 62 140 52 160 50"></path><path d="M122 78 C134 62 150 56 166 56"></path><path d="M210 84 C198 62 180 52 160 50"></path><path d="M198 78 C186 62 170 56 154 58"></path><path d="M96 106 C100 90 108 80 120 72"></path><path d="M224 106 C220 90 212 80 200 72"></path><path d="M146 72 C150 64 158 60 166 62"></path><path d="M160 70 C164 62 172 58 180 60"></path></g><ellipse cx="160" cy="58" rx="22" ry="7" fill="#fff" opacity=".22"></ellipse><g><path d="M108 136 Q126 126 146 132" stroke="#8c847a" stroke-width="5" fill="none" stroke-linecap="round"></path><path d="M174 132 Q194 126 212 136" stroke="#8c847a" stroke-width="5" fill="none" stroke-linecap="round"></path></g><!-- eyes --><ellipse cx="128" cy="158" rx="10" ry="7.5" fill="#fff"></ellipse><ellipse cx="192" cy="158" rx="10" ry="7.5" fill="#fff"></ellipse><circle cx="129" cy="158" r="5.5" fill="#7d9277"></circle><circle cx="193" cy="158" r="5.5" fill="#7d9277"></circle><circle cx="129" cy="158" r="2.6" fill="#22262b"></circle><circle cx="193" cy="158" r="2.6" fill="#22262b"></circle><circle cx="131" cy="156" r="1.4" fill="#fff"></circle><circle cx="195" cy="156" r="1.4" fill="#fff"></circle><!-- smile crinkles --><path d="M112 164 Q118 170 126 168" stroke="#d29c80" stroke-width="2" fill="none" stroke-linecap="round"></path><path d="M208 164 Q202 170 194 168" stroke="#d29c80" stroke-width="2" fill="none" stroke-linecap="round"></path><!-- glasses: dark grey translucent rectangular frames --><rect x="100" y="138" width="56" height="40" rx="8" fill="url(#hc-lens)" stroke="#555b63" stroke-width="6"></rect><rect x="164" y="138" width="56" height="40" rx="8" fill="url(#hc-lens)" stroke="#555b63" stroke-width="6"></rect><path d="M156 152 Q160 148 164 152" stroke="#555b63" stroke-width="5" fill="none"></path><path d="M100 148 L84 146" stroke="#555b63" stroke-width="5" stroke-linecap="round"></path><path d="M220 148 L236 146" stroke="#555b63" stroke-width="5" stroke-linecap="round"></path><circle cx="104" cy="142" r="2" fill="#9aa1a9"></circle><circle cx="216" cy="142" r="2" fill="#9aa1a9"></circle><!-- nose --><path d="M160 168 C156 186 150 196 152 202 C156 208 166 208 170 202" stroke="#cf957a" stroke-width="3.5" fill="none" stroke-linecap="round"></path><!-- rosy cheeks --><ellipse cx="114" cy="200" rx="15" ry="9" fill="#f29a8a" opacity=".45"></ellipse><ellipse cx="206" cy="200" rx="15" ry="9" fill="#f29a8a" opacity=".45"></ellipse><!-- light stubble around mouth and chin --><path d="M122 212 C128 244 192 244 198 212 C198 234 184 252 160 252 C136 252 122 234 122 212 Z" fill="#c9b6a6" opacity=".22"></path><g><path d="M136 220 Q160 236 184 220" stroke="#b5635a" stroke-width="4.5" fill="none" stroke-linecap="round"></path><path d="M132 218 Q134 222 137 221" stroke="#b5635a" stroke-width="3" fill="none" stroke-linecap="round"></path><path d="M188 218 Q186 222 183 221" stroke="#b5635a" stroke-width="3" fill="none" stroke-linecap="round"></path></g><!-- sweatband --><path d="M84 112 Q160 92 236 112 L236 132 Q160 112 84 132 Z" fill="#ff6f59" stroke="#c94a37" stroke-width="3"/><path d="M84 118 Q160 98 236 118" stroke="#fff" stroke-width="3" fill="none" opacity=".85"/><!-- whistle --><path d="M146 300 L160 336 L174 300" stroke="#ff6f59" stroke-width="3" fill="none"/><rect x="150" y="334" width="26" height="14" rx="6" fill="#d7dde3" stroke="#6b7682" stroke-width="2"/><circle cx="170" cy="341" r="3" fill="#6b7682"/></svg></div><div class="mpbub">Welcome to The Health Club! Pick your zone and let's get moving.</div></div>
+
+<footer>
+  <p class="edu">For education and ideas only. Not a substitute for a doctor, dietitian or certified trainer.</p>
+  <p>Answers are researched live with AI and checked against real sources. AI can still make mistakes, so double-check anything important. Start any new exercise slowly, stop if something hurts, and talk with your doctor first if you have a health condition, an injury, are pregnant or take medication. In an emergency, call 911.</p>
+  <p>Coach Mike, Coach Lisa and Dr. Data are friendly characters, not real people or licensed professionals. Diagrams are drawn by AI to illustrate the movement. Photos from Wikipedia / Wikimedia Commons, credited on each photo.</p>
+  <p>The Health Club is part of <a href="https://nusparklearnwow.com" target="_blank" rel="noopener">NuSparkLearnWow.com</a> from NuSpark Publishing.</p>
+</footer>
+
+<script>
+/* ---------- the club ---------- */
+const GUIDE = {
+  mike: { name: "Coach Mike", role: "Exercise & Machines", ico: "💪", color: "#0f8f7a" },
+  lisa: { name: "Coach Lisa", role: "Stretching, Food & Habits", ico: "🧘", color: "#e0563f" },
+  data: { name: "Dr. Data", role: "The Researcher", ico: "📊", color: "#6a4fb3" }
+};
+const ZONES = {
+  adults: { em: "🏃", name: "Adults", sub: "The full club" },
+  fifty:  { em: "🌿", name: "50+ Corner", sub: "Balance & joint-friendly" },
+  kids:   { em: "🧒", name: "Kids' Playground", sub: "Fun moves, ages 5-12" },
+  family: { em: "👨‍👩‍👧", name: "Family Workout", sub: "Move together" }
+};
+const ROOMS = [
+  { id: "gym",       em: "🏋️", name: "The Gym Floor",     guide: "mike", text: "How to do an exercise, with diagrams, mistakes to avoid and easier or harder versions." },
+  { id: "homegym",   em: "🏠", name: "The Home Gym",      guide: "mike", text: "No gym? No problem. Tap what you have at home (mat, chair, bands) and get moves that use it." },
+  { id: "machines",  em: "⚙️", name: "The Machine Room",  guide: "mike", text: "Typical gym machines: how to set them up and use them.", noKids: true },
+  { id: "bodymap",   em: "🫀", name: "Body Map",          guide: "mike", text: "Tap a muscle to learn what it does and the moves that work it." },
+  { id: "reallife",  em: "🛒", name: "Train for Real Life", guide: "mike", text: "Pick an everyday goal, like getting up off the floor, and see the muscles and moves that build it." },
+  { id: "nutrition", em: "🥗", name: "Nutrition Corner",  guide: "lisa", text: "How to choose foods and drinks, eating styles explained, gluten, and the Label Reader." },
+  { id: "lifestyle", em: "🛋️", name: "Lifestyle Lounge",  guide: "lisa", text: "Sleep, stress, screen time, posture and healthy habits." },
+  { id: "myth",      em: "🧱", name: "Myth or Fact Wall", guide: "lisa", text: "Guess myth or fact, then see what the research says." },
+  { id: "debate",    em: "🎤", name: "The Great Debate",  guide: "data", text: "Ask a health question and watch the coaches and Dr. Data debate it, with proof charts." },
+  { id: "plan",      em: "📋", name: "The Planning Desk", guide: "lisa", text: "Answer a few quick questions and print sample ideas: routines, challenges and more." }
+];
+const BAR_RIGHT = { home: "Open Daily", reallife: "Coach Mike", homegym: "Coach Mike", gym: "Coach Mike", machines: "Coach Mike", bodymap: "Coach Mike", nutrition: "Coach Lisa", lifestyle: "Coach Lisa", myth: "Test Yourself", debate: "Live Debate", plan: "Printables" };
+const BANNER = ["Push-up", "Squat (exercise)", "Yoga", "Walking", "Stretching", "Vegetable", "Treadmill", "Leg press", "Mediterranean diet", "Swimming (sport)", "Plank (exercise)", "Fruit", "Jogging", "Dumbbell", "Nordic walking", "Water"];
+
+const EXERCISES = {
+  adults: { "Core": ["Plank", "Crunch", "Sit-up", "Dead bug", "Bird dog", "Side plank"], "Upper body": ["Push-up", "Dumbbell biceps curl", "Triceps dip", "Overhead press", "Bent-over row", "Lateral raise"], "Lower body": ["Bodyweight squat", "Lunge", "Glute bridge", "Calf raise", "Step-up", "Romanian deadlift"], "Cardio": ["Jumping jacks", "Brisk walking", "Jump rope", "High knees", "Mountain climbers", "Stair climbing"], "Stretches": ["Hamstring stretch", "Hip flexor stretch", "Chest doorway stretch", "Child's pose", "Cat-cow", "Standing quad stretch"] },
+  fifty:  { "Balance": ["Single-leg stand holding a chair", "Heel-to-toe walk", "Sit-to-stand", "Side leg raise holding a chair"], "Strength": ["Wall push-up", "Chair squat", "Seated row with a band", "Light dumbbell curl", "Calf raise holding a chair"], "Gentle cardio": ["Brisk walking", "Marching in place", "Stationary bike", "Water walking"], "Stretches": ["Seated hamstring stretch", "Shoulder rolls", "Ankle circles", "Seated spinal twist"] },
+  kids:   { "Animal moves": ["Bear crawl", "Frog jumps", "Crab walk", "Inchworm", "Flamingo stand"], "Play": ["Jumping jacks", "Hopscotch hops", "Skipping", "Star jumps", "Freeze dance"], "Strong kids": ["Wall push-up", "Kid plank", "Superman hold", "Squat jumps"], "Stretches": ["Butterfly stretch", "Cat-cow", "Reach for the sky", "Toe touch"] },
+  family: { "Together": ["Partner high-five plank", "Wheelbarrow walk", "Side-by-side squats", "Mirror moves", "Jumping jacks"], "Games": ["Relay race", "Animal walk race", "Freeze dance", "Hopscotch"], "Stretches": ["Butterfly stretch", "Partner seated stretch", "Cat-cow", "Reach for the sky"] }
+};
+const HOME_EQUIP = ["Exercise mat", "Sturdy chair", "Resistance bands", "Dumbbells", "Stability ball", "Foam roller", "Stairs or a step", "A wall", "Water jugs or cans", "Towel", "Jump rope", "Kettlebell"];
+const HOME_EQUIP_KIDS = ["Exercise mat", "Pillows or cushions", "A ball", "Jump rope", "A wall", "Stairs (with a grown-up)", "Hula hoop", "Towel"];
+const HOME_101 = ["Choosing an exercise mat", "Resistance band colors and strengths", "Is my chair safe to exercise with?", "Dumbbells: how to pick a starting weight", "Setting up a home workout space", "Stability ball sizes", "Foam rolling basics"];
+const REAL_LIFE = {
+  adults: ["Carry all the groceries in one trip", "Get up off the floor without help", "Climb stairs without getting winded", "Lift a suitcase into the overhead bin", "Garden without a sore back", "Keep up with my kids at the park", "Carry a laundry basket up the stairs", "Sit at a desk all day without back pain", "Shovel snow safely", "Walk a whole day of sightseeing"],
+  fifty: ["Get up off the floor without help", "Play with my grandkids", "Get in and out of the car easily", "Carry groceries from the car", "Climb stairs with confidence", "Reach the top shelf safely", "Stand up from a chair without using my hands", "Walk on uneven ground without tripping"],
+  kids: ["Climb the monkey bars", "Run faster at recess", "Do a cartwheel", "Jump higher", "Carry my backpack without slouching", "Ride my bike up a hill"],
+  family: ["Go on a family hike", "Play tag without getting tired", "Carry the beach gear together", "Ride bikes as a family"]
+};
+const MUSCLE_NAMES = [...new Set([...[ "Shoulders","Chest","Biceps","Forearms","Abs (core)","Obliques","Hip flexors","Quads","Shins"], ...["Upper back (traps)","Lats (back)","Triceps","Lower back","Glutes","Hamstrings","Calves"]])];
+const MACHINES = { "Strength": ["Leg press", "Lat pulldown", "Chest press machine", "Seated cable row", "Cable machine", "Leg extension", "Seated leg curl", "Shoulder press machine", "Smith machine"], "Cardio": ["Treadmill", "Elliptical", "Stationary bike", "Rowing machine", "Stair climber"] };
+const NUTRITION = {
+  choose: { name: "How to Choose", ex: "Bread, yogurt, cereal, frozen veggies", topics: ["Bread", "Yogurt", "Breakfast cereal", "Fresh produce", "Frozen vegetables", "Snack bars", "Peanut butter", "Pasta and rice", "Canned soups", "Deli meats"], kids: ["Eat the rainbow: fruits and veggies", "Breakfast foods", "Snacks", "Lunchbox ideas"] },
+  styles: { name: "Eating Styles", ex: "Plant-based, Mediterranean, keto", topics: ["Plant-based", "Vegetarian", "Vegan", "Mediterranean", "Gluten-free", "Keto", "Low-carb", "Dairy-free", "Intermittent fasting", "DASH"], noKids: true },
+  sensitivities: { name: "Gluten & Sensitivities", ex: "What is gluten? Lactose intolerance", topics: ["What is gluten?", "Celiac disease vs. gluten sensitivity", "Lactose intolerance", "The 9 major food allergens", "Reading allergen labels", "Food allergy vs. intolerance"], noKids: true },
+  label: { name: "Label Reader" },
+  drinks: { name: "Drinks", ex: "Coffee, energy drinks, water", topics: ["Water", "Coffee", "Tea", "Energy drinks", "Sports drinks", "Soda", "Juice", "Milk and milk alternatives"], kids: ["Water", "Milk", "Juice", "Sports drinks", "Soda"] }
+};
+const LIFESTYLE = {
+  adults: ["Sleep", "Stress", "Screen time", "Posture", "Desk jobs", "Building healthy habits", "Morning routines", "Staying active at work", "Walking more"],
+  fifty: ["Sleep after 50", "Staying active as we age", "Fall prevention at home", "Stress", "Posture", "Staying social", "Building healthy habits"],
+  kids: ["Sleep for kids", "Screen time", "Playing outside", "Drinking water", "Calm-down breathing"],
+  family: ["Family screen-time ideas", "Sleep routines", "Active family weekends", "Healthy family habits", "Playing outside"]
+};
+const DEBATES = {
+  adults: ["How much do we really need to walk? Is 10,000 steps real?", "Cardio or weights: which matters more?", "Is breakfast really the most important meal?", "Stretch before or after exercise?", "Morning or evening workouts?", "Plant-based vs. Mediterranean eating"],
+  fifty: ["Walking or swimming: which is better for joints?", "Weights after 60: worth it?", "How much sleep do we need as we age?", "Is coffee good or bad for older adults?"],
+  kids: ["Should kids drink sports drinks?", "How much sleep do kids need?", "Is it better to play outside or play a sport?", "Are fruit snacks as good as fruit?"],
+  family: ["How much screen time is OK for families?", "Should families eat dinner together?", "Is it better to play outside or play a sport?"]
+};
+
+const $ = s => document.querySelector(s);
+/* append() skips empty pieces and flattens lists, so optional sections never print "null" */
+const _append = Element.prototype.append;
+Element.prototype.append = function(...a){ return _append.apply(this, a.flat(Infinity).filter(x => x != null && x !== false && x !== "")); };
+function el(tag, attrs, ...kids){
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "text") e.textContent = v;
+    else if (k === "html") e.innerHTML = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false && k !== "") e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+}
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const cleanAI = v => typeof v === "string" ? v.replace(/<\/?cite\b[^>]*>/gi, "").replace(/\*\*/g, "").replace(/[ \t]{2,}/g, " ").trim()
+  : Array.isArray(v) ? v.map(cleanAI) : (v && typeof v === "object") ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "svg" ? x : cleanAI(x)])) : v;
+const isKid = () => state.zone === "kids" || state.zone === "family";
+
+/* every AI call goes through here, so Stop can cancel them all */
+const inflight = new Set();
+function setWorking(){ document.body.classList.toggle("working", inflight.size > 0); }
+async function api(body){
+  const ctl = new AbortController();
+  inflight.add(ctl); setWorking();
+  try {
+    const r = await fetch("/api/club", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.assign({ zone: state.zone }, body)), signal: ctl.signal });
+    let j = {}; try { j = await r.json(); } catch(e){}
+    if (r.status === 402) throw new Error("Join LearnWow to keep using The Health Club.");
+    if (!r.ok) throw new Error(j.message || j.error || "Something went wrong. Please try again.");
+    return cleanAI(j);
+  } catch(e) {
+    if (e && e.name === "AbortError") throw new Error("Stopped. Tap 🔄 Restart to run it again.");
+    throw e;
+  } finally { inflight.delete(ctl); setWorking(); }
+}
+function stopAll(){ [...inflight].forEach(c => c.abort()); if (play) play.stop(); }
+
+function avatar(id, size){
+  const g = GUIDE[id] || GUIDE.mike;
+  return el("span", { class: "av", style: "background:" + g.color + (size ? ";width:" + size + "px;height:" + size + "px;font-size:" + Math.round(size * .52) + "px" : ""), title: g.name, "aria-hidden": "true" }, g.ico);
+}
+function mate(id){ const g = GUIDE[id]; return el("div", { class: "mate" }, avatar(id), el("span", {}, g.name, el("small", { text: g.role }))); }
+const HEART = '<svg class="pulse" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.4 2.9 4.5 6.6 4.5c2.1 0 3.6 1.2 5.4 3.2 1.8-2 3.3-3.2 5.4-3.2 3.7 0 5.7 3.9 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>';
+function loadingEl(msg, rotate){
+  const t = el("span", { text: msg });
+  const box = el("div", { class: "loading" });
+  box.innerHTML = HEART; box.append(t);
+  if (rotate && rotate.length) { let i = 0; const iv = setInterval(() => { if (!document.body.contains(box)) return clearInterval(iv); t.textContent = rotate[i++ % rotate.length]; }, 4500); }
+  return box;
+}
+const errEl = msg => el("div", { class: "err", role: "alert", text: msg });
+function slug(s){ return String(s || "health-club").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "health-club"; }
+function download(name, text){
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+}
+function printNow(){ setTimeout(() => window.print(), 50); }
+function pdfNow(){
+  const n = el("div", { class: "card tip noprint", text: "In the print window, choose \"Save as PDF\" as the printer to download a PDF." });
+  display.prepend(n); setTimeout(() => n.remove(), 9000); printNow();
+}
+function sourcesEl(list, note){
+  if (!list || !list.length) return note ? el("p", { class: "fn", text: note }) : null;
+  return el("div", { class: "fn" }, el("b", { text: "Sources Mr. Paul checked" }), el("ol", {}, list.map(s => el("li", {}, el("a", { href: s.url, target: "_blank", rel: "noopener", text: s.title || s.url })))));
+}
+const eduNote = () => el("p", { class: "foot-note", text: "For education and ideas only. Not a substitute for a doctor, dietitian or certified trainer." });
+
+/* ---------- photos (Wikipedia / Wikimedia Commons, credited) ---------- */
+const photoMem = {};
+function wikiPhoto(title, size){
+  if (!title) return Promise.resolve(null);
+  const key = title + "|" + (size || 800);
+  if (photoMem[key]) return photoMem[key];
+  return (photoMem[key] = (async () => {
+    try {
+      const u = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=" + (size || 800) + "&titles=" + encodeURIComponent(title);
+      const j = await (await fetch(u)).json();
+      const page = Object.values((j.query && j.query.pages) || {})[0];
+      const src = page && page.thumbnail && page.thumbnail.source;
+      if (!src || /\.svg/i.test(src)) return null;
+      return { src, title: page.title, link: "https://en.wikipedia.org/wiki/" + encodeURIComponent(page.title.replace(/ /g, "_")) };
+    } catch(e){ return null; }
+  })());
+}
+const bannerPhotos = [];
+function buildBanner(){
+  const b = $("#banner");
+  shuffle(BANNER).slice(0, 8).forEach(t => {
+    const fig = el("figure", {}); b.append(fig);
+    wikiPhoto(t, 400).then(p => {
+      if (!p) return;
+      bannerPhotos.push(p);
+      const img = el("img", { src: p.src, alt: "" });
+      img.onload = () => img.classList.add("on");
+      fig.append(img, el("figcaption", { text: p.title }));
+    });
+  });
+}
+
+/* ---------- screen, navigation and the control bar ---------- */
+const state = { view: null, stack: [], zone: "adults" };
+const display = $("#display");
+let play = null; // the debate playback (the only thing Pause works on)
+function setBar(left, kind){ $("#barLeft").textContent = left || "The Lobby"; $("#barRight").textContent = BAR_RIGHT[kind] || BAR_RIGHT.home; }
+function ctrlBar(){
+  const v = state.view || {};
+  const bar = el("div", { class: "ctrl noprint" });
+  if (state.stack.length) bar.append(el("button", { type: "button", onclick: goBack }, "← Back"));
+  bar.append(el("button", { type: "button", class: "stop", onclick: stopAll, title: "Stop what the coaches are working on" }, "⏹ Stop"));
+  const pb = el("button", { type: "button", id: "pauseBtn", onclick: () => { if (play) play.toggle(); } }, play && play.paused ? "▶ Continue" : "⏸ Pause");
+  if (!v.pausable) { pb.disabled = true; pb.title = "Pause works during The Great Debate"; }
+  bar.append(pb);
+  if (v.restart) bar.append(el("button", { type: "button", onclick: () => { stopAll(); v.restart(); } }, "🔄 Restart"));
+  bar.append(el("button", { type: "button", onclick: closeView }, "✖ Close"),
+    el("button", { type: "button", onclick: goHome }, "🏠 Back to Start"));
+  return bar;
+}
+function paint(view){
+  display.innerHTML = "";
+  if (!view.isHome) display.append(ctrlBar());
+  view.render(display);
+  setBar(view.bar || "The Lobby", view.kind || "home");
+}
+function show(view, push = true){
+  if (play && !view.pausable) { play.stop(); play = null; }
+  if (push && state.view) state.stack.push(state.view);
+  state.view = view;
+  paint(view);
+  if (push) scrollToEl(display.closest(".panel"));
+}
+function scrollToEl(node){
+  if (!node) return;
+  if (window.parent !== window) {
+    try { window.parent.postMessage({ lwToolScrollY: Math.max(0, node.getBoundingClientRect().top + window.scrollY - 10) }, "*"); } catch(e){}
+  } else node.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function goBack(){ const v = state.stack.pop(); if (v) { if (play && !v.pausable) { play.stop(); play = null; } state.view = v; paint(v); } }
+function goHome(){ stopAll(); play = null; state.stack = []; state.view = homeView(); paint(state.view); }
+function closeView(){
+  stopAll();
+  const room = state.view && state.view.room;
+  if (room && !(state.view && state.view.isRoom)) { play = null; state.stack = [homeView()]; state.view = roomView(room); paint(state.view); }
+  else goHome();
+}
+function roomView(id){
+  return ({ reallife: realLifeView, homegym: homeGymView, gym: gymView, machines: machineRoomView, bodymap: bodyMapView, nutrition: nutritionView, lifestyle: lifestyleView, myth: mythView, debate: debateView, plan: planView })[id]();
+}
+function chipRow(list, onPick){ return el("div", { class: "chips" }, list.map(t => el("button", { type: "button", onclick: () => onPick(t) }, t))); }
+function searchRow(id, label, ex, btnText, onGo){
+  const inp = el("input", { type: "text", id, maxlength: "160", autocomplete: "off", "aria-label": label });
+  const go = () => { const v = inp.value.trim(); if (v) onGo(v); else inp.focus(); };
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  return el("div", {}, el("label", { for: id, class: "grp", text: label }), el("p", { class: "ex", text: "For example: " + ex }), el("div", { class: "inrow" }, inp, el("button", { class: "btn", type: "button", onclick: go }, btnText)));
+}
+
+/* ---------- the lobby ---------- */
+function homeView(){
+  return { isHome: true, bar: "The Lobby", kind: "home", render(d){
+    d.append(
+      el("h2", { class: "vt", text: "Welcome to the club" }),
+      el("p", { class: "lead", text: "Pick your zone, then step into any room. Coach Mike and Coach Lisa are at the front desk." }),
+      el("div", { class: "coaches" }, mate("mike"), mate("lisa"), mate("data")),
+      el("div", { class: "grp", text: "1. Pick your zone" }),
+      el("div", { class: "zones", role: "group", "aria-label": "Age zone" }, Object.entries(ZONES).map(([id, z]) =>
+        el("button", { type: "button", class: "zone" + (state.zone === id ? " on" : ""), "aria-pressed": state.zone === id ? "true" : "false", onclick: () => { state.zone = id; paint(state.view); } },
+          el("span", { class: "em", text: z.em }), z.name, el("small", { text: z.sub })))),
+      el("div", { class: "grp", text: "2. Pick a room" }),
+      el("div", { class: "rooms" }, ROOMS.filter(r => !(r.noKids && isKid())).map(r =>
+        el("button", { type: "button", class: "room", onclick: () => show(roomView(r.id)) },
+          el("div", { class: "em", text: r.em }), el("b", { text: r.name }), el("span", { text: r.id === "nutrition" && isKid() ? "How to choose foods and drinks, fun food facts, and the Label Reader." : r.text }), el("i", { text: GUIDE[r.guide].name })))),
+      askBox({ context: "The visitor is in the lobby of The Health Club.", title: "Ask the coaches anything about exercise, food or healthy habits", ex: "How do I start exercising again after a long break?" })
+    );
+  }};
+}
+
+/* ---------- ask box (used everywhere) ---------- */
+function askBox(opts){
+  const panel = opts.panel || "coaches";
+  const whoList = panel === "debate" ? [["all", "Whole panel"], ["mike", "Coach Mike"], ["lisa", "Coach Lisa"], ["data", "Dr. Data"]] : [["all", "Both coaches"], ["mike", "Coach Mike"], ["lisa", "Coach Lisa"]];
+  let to = "all";
+  const history = [];
+  const out = el("div", {});
+  const ta = el("textarea", { maxlength: "600", "aria-label": "Your question" });
+  const who = el("div", { class: "who" }, whoList.map(([id, lab]) => el("button", { type: "button", class: id === to ? "on" : "", onclick: e => { to = id; who.querySelectorAll("button").forEach(b => b.classList.toggle("on", b === e.currentTarget)); } }, lab)));
+  const btn = el("button", { class: "btn alt", type: "button" }, "Ask");
+  async function ask(q){
+    q = (q || ta.value).trim(); if (!q) return ta.focus();
+    out.append(el("div", { class: "say me" }, el("div", { class: "bub" }, el("b", { text: "You" }), q)));
+    history.push({ who: "user", text: q }); ta.value = ""; btn.disabled = true;
+    const ld = loadingEl("The coaches are thinking…"); out.append(ld);
+    try {
+      const j = await api({ mode: "ask", to, question: q, context: (typeof opts.context === "function" ? opts.context() : opts.context) || "", history, panel: panel === "debate" ? "debate" : "" });
+      ld.remove();
+      (j.replies || []).forEach(r => { out.append(el("div", { class: "say" }, avatar(r.id), el("div", { class: "bub" }, el("b", { text: (GUIDE[r.id] || GUIDE.lisa).name, style: "color:" + (GUIDE[r.id] || GUIDE.lisa).color }), r.text))); history.push({ who: "guide", text: r.text }); });
+      if (j.clarify) out.append(el("div", { class: "card tip" }, el("b", { text: "Quick question back: " }), j.clarify));
+      const s = sourcesEl(j.sources); if (s) out.append(s);
+    } catch(e){ ld.remove(); out.append(errEl(e.message)); }
+    btn.disabled = false;
+  }
+  btn.addEventListener("click", () => ask());
+  ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } });
+  const box = el("div", { class: "qbox noprint" }, el("b", { text: "❓ " + (opts.title || "Have a question?") }), who,
+    opts.ex ? el("p", { class: "ex", text: "For example: " + opts.ex }) : null, ta, el("div", { class: "actions" }, btn), out);
+  box.ask = ask;
+  return box;
+}
+
+/* ---------- diagrams ---------- */
+/* The Diagram Library: pre-drawn, reviewed diagrams for the common moves (diagrams.json). Anything else is drawn live by AI. */
+let LIB = null;
+function diagramLibrary(){ if (!LIB) LIB = fetch("diagrams.json").then(r => r.ok ? r.json() : null).catch(() => null); return LIB; }
+function normName(s){
+  const w = String(s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(Boolean);
+  if (w.length) { const last = w[w.length - 1]; if (last.length > 3 && last.endsWith("s") && !last.endsWith("ss")) w[w.length - 1] = last.slice(0, -1); }
+  return w.join(" ");
+}
+const diagMem = {};
+function getDiagram(name, kind, hint){
+  const key = (name + "|" + kind + "|" + state.zone).toLowerCase();
+  if (!diagMem[key]) diagMem[key] = diagramLibrary().then(L => {
+    if (L && L.d) {
+      const k = normName(name), hit = L.d[k] ? k : (L.a && L.a[k]);
+      if (hit && L.d[hit]) return { ok: true, svg: L.d[hit].svg, caption: L.d[hit].caption, library: true };
+    }
+    return api({ mode: "diagram", name, kind, hint: hint || "" });
+  }).then(j => { if (!j.ok) { delete diagMem[key]; } return j; }).catch(e => { delete diagMem[key]; throw e; });
+  return diagMem[key];
+}
+function diagramEl(name, kind, hint, small){
+  const box = el("div", { class: "diagram" });
+  const load = () => {
+    box.innerHTML = ""; box.append(loadingEl(small ? "Drawing " + name + "…" : "Coach Mike is drawing the diagram…"));
+    getDiagram(name, kind, hint).then(j => {
+      box.innerHTML = "";
+      if (!j.ok) { box.append(el("div", { class: "ph", text: j.message || "The diagram didn't come out right." }), el("button", { class: "btn ghost noprint", type: "button", onclick: load }, "Try Again")); return; }
+      const img = el("img", { alt: "Diagram: " + (j.caption || name), src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(j.svg) });
+      box.append(img, el("div", { class: "cap", text: small ? name : (j.caption || "") }));
+    }).catch(e => { box.innerHTML = ""; box.append(el("div", { class: "ph", text: e.message }), el("button", { class: "btn ghost noprint", type: "button", onclick: load }, "Try Again")); });
+  };
+  load();
+  return box;
+}
+
+/* ---------- exercise / machine lesson ---------- */
+function lessonView(name, kind, room){
+  const v = { room, bar: name, kind: room, restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  v.data = null;
+  async function run(){
+    try { v.data = await api({ mode: kind === "machine" ? "machine" : "exercise", name }); } catch(e){ v.err = e.message; }
+    if (state.view === v) paint(v);
+  }
+  v.render = d => {
+    d.append(el("div", { class: "printonly brandline" }, el("b", { text: "The Health Club · NuSparkLearnWow.com" })));
+    if (v.err) { d.append(el("h2", { class: "vt", text: name }), errEl(v.err)); return; }
+    if (!v.data) {
+      d.append(el("h2", { class: "vt", text: name }), diagramEl(name, kind === "machine" ? "machine" : /stretch|pose|twist|roll|circle|cat-cow|reach/i.test(name) ? "stretch" : "exercise"),
+        loadingEl("Coach Mike is researching " + name + "…", ["Checking trusted sources…", "Writing the steps…", "Listing common mistakes…", "Finding easier and harder versions…"]));
+      return;
+    }
+    const j = v.data;
+    if (!j.ok) { d.append(el("h2", { class: "vt", text: name }), el("div", { class: "card", text: j.message })); return; }
+    const dk = kind === "machine" ? "machine" : /stretch|pose|twist|roll|circle|cat-cow|reach/i.test(name) ? "stretch" : "exercise";
+    d.append(
+      el("h2", { class: "vt", text: j.title }),
+      el("div", {}, (j.muscles || []).map(m => el("span", { class: "pill", text: m })), j.equipment ? el("span", { class: "pill c", text: j.equipment }) : null),
+      el("p", { class: "lead", text: j.what }),
+      diagramEl(name, dk)
+    );
+    if (j.setup && j.setup.length) d.append(el("h3", { text: "⚙️ Set it up first" }), el("ol", { class: "steps" }, j.setup.map(s => el("li", {}, s))));
+    d.append(el("h3", { text: "👣 How to do it" }), el("ol", { class: "steps" }, j.steps.map(s => el("li", {}, el("b", { text: s.title }), s.text))));
+    if (j.breathing) d.append(el("div", { class: "card good" }, el("b", { text: "🌬️ Breathing: " }), j.breathing));
+    if (j.mistakes.length) d.append(el("h3", { text: "🚫 Common mistakes" }), el("ul", { class: "tidy" }, j.mistakes.map(m => el("li", {}, m))));
+    if (j.easier.length || j.harder.length) d.append(el("div", { class: "two" },
+      el("div", { class: "card" }, el("b", { text: "⬇️ Make it easier" }), el("ul", { class: "tidy" }, j.easier.map(x => el("li", {}, el("b", { text: x.name + ": " }), x.how)))),
+      el("div", { class: "card" }, el("b", { text: "⬆️ Make it harder" }), el("ul", { class: "tidy" }, j.harder.map(x => el("li", {}, el("b", { text: x.name + ": " }), x.how))))));
+    if (j.sample) d.append(el("div", { class: "card" }, el("b", { text: "🔢 A common starting point: " }), j.sample, el("div", { class: "ex", text: "General idea only, not a personal prescription. Start easy and adjust to how you feel." })));
+    if (j.coachTip) d.append(el("div", { class: "say" }, avatar("mike"), el("div", { class: "bub" }, el("b", { text: "Coach Mike's tip", style: "color:" + GUIDE.mike.color }), j.coachTip)));
+    (j.deeper || []).forEach(s => d.append(el("h3", { text: s.heading }), el("p", { text: s.text })));
+    if (j.safety) d.append(el("div", { class: "card safe" }, el("b", { text: "⚠️ Play it safe: " }), j.safety));
+    if (j.followups.length) d.append(el("div", { class: "grp noprint", text: "People also ask" }), el("div", { class: "chips noprint" }, j.followups.map(f => el("button", { type: "button", onclick: () => box.ask(f) }, f))));
+    const box = askBox({ context: () => "Lesson: " + j.title + ". Steps: " + j.steps.map(s => s.title).join("; "), title: "Ask Coach Mike or Coach Lisa about " + j.title });
+    d.append(box, sourcesEl(j.sources, j.sourceNote), eduNote(),
+      el("div", { class: "actions noprint" }, el("button", { class: "btn ghost", type: "button", onclick: printNow }, "🖨️ Print This"), el("button", { class: "btn ghost", type: "button", onclick: pdfNow }, "📄 Download PDF")));
+  };
+  run();
+  return v;
+}
+
+/* ---------- rooms ---------- */
+function gymView(){
+  return { room: "gym", isRoom: true, bar: "The Gym Floor", kind: "gym", render(d){
+    const list = EXERCISES[state.zone] || EXERCISES.adults;
+    d.append(el("h2", { class: "vt", text: "🏋️ The Gym Floor" }), el("p", { class: "lead", text: "Pick a move or type any exercise or stretch. Coach Mike shows you how, with a diagram." }), mate("mike"),
+      searchRow("gymQ", "Type an exercise or stretch", isKid() ? "bear crawl, star jumps" : "sit-ups, goblet squat, plank", "Show Me How", n => show(lessonView(n, "exercise", "gym"))));
+    Object.entries(list).forEach(([g, items]) => d.append(el("div", { class: "grp", text: g }), chipRow(items, n => show(lessonView(n, "exercise", "gym")))));
+  }};
+}
+function machineRoomView(){
+  return { room: "machines", isRoom: true, bar: "The Machine Room", kind: "machines", render(d){
+    d.append(el("h2", { class: "vt", text: "⚙️ The Machine Room" }), el("p", { class: "lead", text: "New to the gym? Learn how to set up and use the machines you'll see on the floor." }), mate("mike"),
+      searchRow("macQ", "Type a gym machine", "hack squat, pec deck, assisted pull-up", "Show Me How", n => show(lessonView(n, "machine", "machines"))));
+    Object.entries(MACHINES).forEach(([g, items]) => d.append(el("div", { class: "grp", text: g }), chipRow(items, n => show(lessonView(n, "machine", "machines")))));
+    d.append(el("div", { class: "card tip" }, el("b", { text: "First time? " }), "Most gyms offer a free orientation, and staff are happy to show you how a machine adjusts. Start with a light weight to learn the movement."));
+  }};
+}
+
+/* The Home Gym */
+function homeGymView(){
+  const v = { room: "homegym", isRoom: true, bar: "The Home Gym", kind: "homegym", equip: [], small: false, quiet: false };
+  v.render = d => {
+    const list = isKid() ? HOME_EQUIP_KIDS : HOME_EQUIP;
+    const msg = el("div", {});
+    const tog = (key, lab) => el("button", { type: "button", class: v[key] ? "on" : "", onclick: e => { v[key] = !v[key]; e.currentTarget.classList.toggle("on"); } }, lab);
+    d.append(el("h2", { class: "vt", text: "🏠 The Home Gym" }), el("p", { class: "lead", text: "Not everyone goes to a gym. Tap what you have at home, and Coach Mike shows you moves that use it, each with a diagram." }), mate("mike"),
+      el("div", { class: "grp", text: "1. What do you have? (pick any)" }),
+      el("div", { class: "chips" }, list.map(t => el("button", { type: "button", class: v.equip.includes(t) ? "on" : "", onclick: e => { v.equip = v.equip.includes(t) ? v.equip.filter(x => x !== t) : v.equip.concat(t); e.currentTarget.classList.toggle("on"); } }, t)),
+        el("button", { type: "button", style: "background:#fff3d4", onclick: () => show(homeMovesView([], v.small, v.quiet)) }, "Nothing at all (bodyweight only)")),
+      el("div", { class: "grp", text: "2. Your space (optional)" }),
+      el("div", { class: "chips" }, tog("small", "📏 Small space"), tog("quiet", "🤫 Quiet (no jumping)")),
+      msg,
+      el("div", { class: "actions" }, el("button", { class: "btn", type: "button", onclick: () => {
+        if (!v.equip.length) { msg.innerHTML = ""; msg.append(errEl("Tap at least one thing you have, or choose Nothing at all.")); return; }
+        show(homeMovesView(v.equip.slice(), v.small, v.quiet));
+      } }, "Show Me Moves")),
+      el("h3", { text: "🧰 Equipment 101" }), el("p", { class: "ex", text: "How to choose and use simple home equipment safely." }),
+      chipRow(HOME_101, q => show(topicView(q, "homegym", "equipment"))),
+      el("div", { class: "card tip" }, el("b", { text: "Home safety: " }), "Clear the floor, wear supportive shoes or go barefoot on a mat, use a chair that doesn't roll or fold, and keep a wall or counter nearby for balance."));
+  };
+  return v;
+}
+function homeMovesView(equip, small, quiet){
+  const label = equip.length ? equip.join(", ") : "No equipment";
+  const v = { room: "homegym", bar: "Home Moves", kind: "homegym", restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "home", equipment: equip, small, quiet }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    d.append(el("h2", { class: "vt", text: "🏠 Moves for: " + label }), el("div", {}, small ? el("span", { class: "pill", text: "Small space" }) : null, quiet ? el("span", { class: "pill", text: "Quiet" }) : null));
+    if (v.err) return d.append(errEl(v.err));
+    if (!v.data) return d.append(loadingEl("Coach Mike is picking moves for your living room…", ["Matching moves to your equipment…", "Grouping by body area…", "Building a sample circuit…"]));
+    const j = v.data;
+    if (!j.ok) return d.append(el("div", { class: "card", text: j.message || "Please try again." }));
+    d.append(el("p", { class: "lead", text: j.intro }));
+    if (j.setup.length) d.append(el("div", { class: "card good" }, el("b", { text: "🏠 Set up your space" }), el("ul", { class: "tidy" }, j.setup.map(x => el("li", {}, x)))));
+    const areas = [...new Set(j.moves.map(m => m.area || "More moves"))];
+    areas.forEach(a => {
+      d.append(el("h3", { text: a }), el("div", { class: "rooms" }, j.moves.filter(m => (m.area || "More moves") === a).map(m =>
+        el("button", { type: "button", class: "room", onclick: () => show(lessonView(m.name, /stretch|pose|twist|roll|circle|cat-cow|reach/i.test(m.name) ? "exercise" : "exercise", "homegym")) },
+          el("b", { text: m.name }), el("span", { text: m.how }), el("i", { text: (m.equipment || "No equipment") + " · Show me how" })))));
+    });
+    if (j.circuit && j.circuit.items.length) d.append(el("div", { class: "card tip" }, el("b", { text: "🔁 Sample circuit: " + (j.circuit.name || "Home circuit") }), j.circuit.rounds ? el("div", { class: "ex", text: j.circuit.rounds }) : null,
+      el("ol", { class: "tidy" }, j.circuit.items.map(x => el("li", {}, el("b", { text: x.name }), x.amount ? " — " + x.amount : "")))));
+    if (j.coachTip) d.append(el("div", { class: "say" }, avatar("mike"), el("div", { class: "bub" }, el("b", { text: "Coach Mike's tip", style: "color:" + GUIDE.mike.color }), j.coachTip)));
+    if (j.safety) d.append(el("div", { class: "card safe" }, el("b", { text: "⚠️ Play it safe: " }), j.safety));
+    d.append(el("div", { class: "actions noprint" },
+      el("button", { class: "btn alt", type: "button", onclick: () => show(planForm("routine", { "Where": equip.length ? "Home with some equipment" : "Home with no equipment", "Equipment you have": equip.slice() })) }, "📋 Build a Printable Home Routine"),
+      el("button", { class: "btn ghost", type: "button", onclick: printNow }, "🖨️ Print This")),
+      askBox({ context: "Home Gym. Equipment: " + label + ". Moves: " + j.moves.map(m => m.name).join(", "), title: "Ask Coach Mike about working out at home" }), eduNote());
+  };
+  run();
+  return v;
+}
+
+/* Body Map */
+const MUSCLES_FRONT = [
+  ["Shoulders", "ellipse", { cx: 62, cy: 100, rx: 15, ry: 13 }], ["Shoulders", "ellipse", { cx: 158, cy: 100, rx: 15, ry: 13 }],
+  ["Chest", "ellipse", { cx: 93, cy: 118, rx: 19, ry: 13 }], ["Chest", "ellipse", { cx: 127, cy: 118, rx: 19, ry: 13 }],
+  ["Biceps", "ellipse", { cx: 50, cy: 138, rx: 9, ry: 22 }], ["Biceps", "ellipse", { cx: 170, cy: 138, rx: 9, ry: 22 }],
+  ["Forearms", "ellipse", { cx: 42, cy: 198, rx: 8, ry: 24 }], ["Forearms", "ellipse", { cx: 178, cy: 198, rx: 8, ry: 24 }],
+  ["Abs (core)", "rect", { x: 96, y: 136, width: 28, height: 62, rx: 9 }],
+  ["Obliques", "ellipse", { cx: 84, cy: 170, rx: 7, ry: 22 }], ["Obliques", "ellipse", { cx: 136, cy: 170, rx: 7, ry: 22 }],
+  ["Hip flexors", "ellipse", { cx: 96, cy: 214, rx: 10, ry: 9 }], ["Hip flexors", "ellipse", { cx: 124, cy: 214, rx: 10, ry: 9 }],
+  ["Quads", "ellipse", { cx: 92, cy: 268, rx: 14, ry: 40 }], ["Quads", "ellipse", { cx: 128, cy: 268, rx: 14, ry: 40 }],
+  ["Shins", "ellipse", { cx: 92, cy: 356, rx: 9, ry: 30 }], ["Shins", "ellipse", { cx: 128, cy: 356, rx: 9, ry: 30 }]
+];
+const MUSCLES_BACK = [
+  ["Upper back (traps)", "path", { d: "M84 92 L110 84 L136 92 L128 112 L110 118 L92 112 Z" }],
+  ["Shoulders", "ellipse", { cx: 62, cy: 100, rx: 15, ry: 13 }], ["Shoulders", "ellipse", { cx: 158, cy: 100, rx: 15, ry: 13 }],
+  ["Lats (back)", "ellipse", { cx: 88, cy: 144, rx: 13, ry: 26 }], ["Lats (back)", "ellipse", { cx: 132, cy: 144, rx: 13, ry: 26 }],
+  ["Triceps", "ellipse", { cx: 50, cy: 138, rx: 9, ry: 22 }], ["Triceps", "ellipse", { cx: 170, cy: 138, rx: 9, ry: 22 }],
+  ["Lower back", "rect", { x: 98, y: 166, width: 24, height: 30, rx: 8 }],
+  ["Glutes", "ellipse", { cx: 96, cy: 220, rx: 15, ry: 15 }], ["Glutes", "ellipse", { cx: 124, cy: 220, rx: 15, ry: 15 }],
+  ["Hamstrings", "ellipse", { cx: 92, cy: 276, rx: 13, ry: 36 }], ["Hamstrings", "ellipse", { cx: 128, cy: 276, rx: 13, ry: 36 }],
+  ["Calves", "ellipse", { cx: 92, cy: 352, rx: 10, ry: 28 }], ["Calves", "ellipse", { cx: 128, cy: 352, rx: 10, ry: 28 }]
+];
+function bodySvg(side, onPick, picked){
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const svg = mk("svg", { viewBox: "0 0 220 420", role: "img", "aria-label": "Body map, " + side + " view" });
+  const base = { fill: "#dfe7e4", stroke: "#9fb3ad", "stroke-width": 2 };
+  [["circle", { cx: 110, cy: 40, r: 25 }], ["rect", { x: 100, y: 62, width: 20, height: 22, rx: 6 }], ["rect", { x: 68, y: 82, width: 84, height: 128, rx: 30 }],
+   ["rect", { x: 76, y: 192, width: 68, height: 42, rx: 16 }], ["rect", { x: 38, y: 88, width: 24, height: 82, rx: 12 }], ["rect", { x: 158, y: 88, width: 24, height: 82, rx: 12 }],
+   ["rect", { x: 33, y: 166, width: 19, height: 70, rx: 9 }], ["rect", { x: 168, y: 166, width: 19, height: 70, rx: 9 }], ["circle", { cx: 42, cy: 245, r: 9 }], ["circle", { cx: 178, cy: 245, r: 9 }],
+   ["rect", { x: 76, y: 224, width: 32, height: 96, rx: 16 }], ["rect", { x: 112, y: 224, width: 32, height: 96, rx: 16 }],
+   ["rect", { x: 81, y: 316, width: 22, height: 80, rx: 11 }], ["rect", { x: 117, y: 316, width: 22, height: 80, rx: 11 }],
+   ["ellipse", { cx: 90, cy: 402, rx: 15, ry: 7 }], ["ellipse", { cx: 130, cy: 402, rx: 15, ry: 7 }]].forEach(([t, a]) => svg.append(mk(t, Object.assign({}, base, a))));
+  if (side === "front") { svg.append(mk("circle", { cx: 101, cy: 36, r: 2.6, fill: "#5d6677" }), mk("circle", { cx: 119, cy: 36, r: 2.6, fill: "#5d6677" }), mk("path", { d: "M101 48 Q110 55 119 48", stroke: "#5d6677", "stroke-width": 2.2, fill: "none", "stroke-linecap": "round" })); }
+  (side === "front" ? MUSCLES_FRONT : MUSCLES_BACK).forEach(([name, t, a]) => {
+    const z = mk(t, Object.assign({ class: "z" + ((Array.isArray(picked) ? picked.includes(name) : picked === name) ? " on" : ""), tabindex: 0, role: "button", "aria-label": name }, a));
+    const ttl = mk("title", {}); ttl.textContent = name; z.append(ttl);
+    z.addEventListener("click", () => onPick(name)); z.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(name); } });
+    svg.append(z);
+  });
+  return svg;
+}
+function bodyMapView(){
+  const v = { room: "bodymap", isRoom: true, bar: "Body Map", kind: "bodymap", side: "front", picked: null };
+  v.render = d => {
+    const pick = name => show(muscleView(name));
+    const names = [...new Set((v.side === "front" ? MUSCLES_FRONT : MUSCLES_BACK).map(m => m[0]))];
+    d.append(el("h2", { class: "vt", text: "🫀 Body Map" }), el("p", { class: "lead", text: "Tap a muscle on the body to learn what it does and the moves that work it." }), mate("mike"),
+      el("div", { class: "bm" },
+        el("div", { class: "bmfig" },
+          el("div", { class: "tabs" }, ["front", "back"].map(s => el("button", { type: "button", class: v.side === s ? "on" : "", onclick: () => { v.side = s; paint(v); } }, s === "front" ? "Front" : "Back"))),
+          bodySvg(v.side, pick, v.picked)),
+        el("div", {}, el("div", { class: "grp", text: "Or pick from the list" }), el("div", { class: "bmlist chips" }, names.map(n => el("button", { type: "button", onclick: () => pick(n) }, n))),
+          el("div", { class: "card tip" }, el("b", { text: "Workout order tip: " }), "Many people train big muscle groups (legs, back, chest) before small ones (biceps, triceps, calves), so the small helpers aren't tired out first."))));
+  };
+  return v;
+}
+function muscleView(name){
+  const v = { room: "bodymap", bar: name, kind: "bodymap", restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "muscle", muscle: name }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    d.append(el("h2", { class: "vt", text: "🫀 " + name }));
+    if (v.err) return d.append(errEl(v.err));
+    if (!v.data) return d.append(loadingEl("Coach Mike is pulling up " + name + "…"));
+    const j = v.data;
+    d.append(el("p", { class: "lead", text: j.job }), j.everyday ? el("div", { class: "card good" }, el("b", { text: "In everyday life: " }), j.everyday) : null,
+      el("h3", { text: "Moves that work it" }),
+      el("div", { class: "rooms" }, j.exercises.map(x => el("button", { type: "button", class: "room", onclick: () => show(lessonView(x.name, /machine|cable|pulldown|press machine|leg press/i.test(x.equipment + " " + x.name) ? "machine" : "exercise", "bodymap")) },
+        el("b", { text: x.name }), el("span", { text: x.how }), el("i", { text: (x.equipment || "") + " · Show me how" })))),
+      j.order ? el("div", { class: "card" }, el("b", { text: "Where it fits in a workout: " }), j.order) : null,
+      j.stretch ? el("div", { class: "card" }, el("b", { text: "🧘 Stretch it: " + j.stretch.name + ". " }), j.stretch.how, " ", el("button", { class: "btn ghost", type: "button", style: "padding:6px 12px;font-size:14px", onclick: () => show(lessonView(j.stretch.name, "exercise", "bodymap")) }, "Show me")) : null,
+      j.tip ? el("div", { class: "say" }, avatar("mike"), el("div", { class: "bub" }, el("b", { text: "Coach Mike's tip", style: "color:" + GUIDE.mike.color }), j.tip)) : null,
+      askBox({ context: "Body Map, muscle: " + name, title: "Ask about the " + name }), eduNote());
+  };
+  run();
+  return v;
+}
+
+/* Train for Real Life */
+function realLifeView(){
+  return { room: "reallife", isRoom: true, bar: "Train for Real Life", kind: "reallife", render(d){
+    d.append(el("h2", { class: "vt", text: "🛒 Train for Real Life" }), el("p", { class: "lead", text: "Start with your life, not an exercise. Pick something you want to do more easily, and the coaches show the muscles it uses and the moves that build toward it." }), mate("mike"),
+      searchRow("rlQ", "Type an everyday goal", isKid() ? "swing across the monkey bars, win the sack race" : "carry my toddler up the stairs, golf without a sore back", "Show Me How to Train", g => show(realLifeRun(g))),
+      el("div", { class: "grp", text: "Popular goals" }), chipRow(REAL_LIFE[state.zone] || REAL_LIFE.adults, g => show(realLifeRun(g))));
+  }};
+}
+function realLifeRun(goal){
+  const v = { room: "reallife", bar: "Real Life Goal", kind: "reallife", restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "reallife", goal, muscles: MUSCLE_NAMES }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    d.append(el("div", { class: "printonly" }, el("b", { text: "The Health Club · Train for Real Life · NuSparkLearnWow.com" })));
+    if (v.err) return d.append(el("h2", { class: "vt", text: goal }), errEl(v.err));
+    if (!v.data) return d.append(el("h2", { class: "vt", text: "🛒 " + goal }), loadingEl("Coach Mike is breaking down how your body does this…", ["Finding the muscles involved…", "Picking moves from easiest to hardest…", "Digging up a Wow...Who Knew? fact…"]));
+    const j = v.data;
+    if (!j.ok) return d.append(el("h2", { class: "vt", text: goal }), el("div", { class: "card", text: j.message }));
+    const lit = j.muscles.map(m => m.muscle);
+    d.append(el("h2", { class: "vt", text: "🛒 " + (j.title || goal) }), el("p", { class: "lead", text: j.why }),
+      el("h3", { text: "🫀 The body behind it" }),
+      el("div", { class: "bm" },
+        el("div", { class: "bmfig" }, el("div", { style: "display:flex;gap:6px" },
+          el("div", { style: "flex:1" }, el("div", { class: "grp", text: "Front" }), bodySvg("front", n => show(muscleView(n)), lit)),
+          el("div", { style: "flex:1" }, el("div", { class: "grp", text: "Back" }), bodySvg("back", n => show(muscleView(n)), lit)))),
+        el("div", {}, j.muscles.map(m => el("div", { class: "card" }, el("span", { class: "pill c", text: m.muscle }), m.why)), el("p", { class: "ex noprint", text: "Tap a highlighted muscle to learn more about it." }))));
+    if (j.wow) d.append(el("div", { class: "card tip" }, el("b", { text: "✨ Wow...Who Knew? " }), j.wow));
+    d.append(el("h3", { text: "💪 Moves that build toward it" }), el("div", { class: "rooms" }, j.moves.map((m, i) =>
+      el("button", { type: "button", class: "room", onclick: () => show(lessonView(m.name, "exercise", "reallife")) },
+        el("span", { class: "pill", text: (i + 1) + " · " + (m.level || "Step") }), el("b", { text: m.name }), el("span", { text: m.how }), el("i", { text: (m.where || "Anywhere") + " · Show me how" })))));
+    if (j.practice) d.append(el("div", { class: "card good" }, el("b", { text: "🎯 Practice the real thing: " }), j.practice));
+    if (j.coachTip) d.append(el("div", { class: "say" }, avatar("mike"), el("div", { class: "bub" }, el("b", { text: "Coach Mike's tip", style: "color:" + GUIDE.mike.color }), j.coachTip)));
+    if (j.safety) d.append(el("div", { class: "card safe" }, el("b", { text: "⚠️ Play it safe: " }), j.safety));
+    d.append(el("div", { class: "actions noprint" }, el("button", { class: "btn alt", type: "button", onclick: () => show(realLifeSheet(goal, j)) }, "🖨️ Printable Sheet (with diagrams)")),
+      askBox({ context: "Train for Real Life goal: " + (j.title || goal) + ". Moves: " + j.moves.map(m => m.name).join(", "), title: "Ask the coaches about this goal" }),
+      sourcesEl(j.sources, j.sourceNote), eduNote());
+  };
+  run();
+  return v;
+}
+function realLifeSheet(goal, j){
+  return { room: "reallife", bar: "Printable Sheet", kind: "reallife", render(d){
+    d.append(el("div", { class: "actions noprint" }, el("button", { class: "btn", type: "button", onclick: printNow }, "🖨️ Print"), el("button", { class: "btn alt", type: "button", onclick: pdfNow }, "📄 Download PDF")));
+    const doc = el("div", { class: "pdoc" });
+    const head = el("div", { class: "phead" }); shuffle(bannerPhotos).slice(0, 5).forEach(p => head.append(el("img", { src: p.src, alt: "" })));
+    doc.append(bannerPhotos.length ? head : "", el("div", { class: "brand", text: "The Health Club · Train for Real Life · NuSparkLearnWow.com" }), el("h2", { text: j.title || goal }), el("p", { text: j.why }),
+      el("h3", { text: "Muscles it uses" }), el("ul", { class: "tidy" }, j.muscles.map(m => el("li", {}, el("b", { text: m.muscle + ": " }), m.why))),
+      j.wow ? el("p", {}, el("b", { text: "Wow...Who Knew? " }), j.wow) : "",
+      el("h3", { text: "Moves that build toward it (sample ideas)" }),
+      el("table", {}, el("thead", {}, el("tr", {}, el("th", { text: "#" }), el("th", { text: "Move" }), el("th", { text: "Level" }), el("th", { text: "How" }), el("th", { text: "Done" }))),
+        el("tbody", {}, j.moves.map((m, i) => el("tr", {}, el("td", { text: String(i + 1) }), el("td", {}, el("b", { text: m.name })), el("td", { text: m.level || "" }), el("td", { text: m.how }), el("td", {}, el("span", { class: "box" })))))),
+      el("h3", { text: "How to do the moves" }), el("div", { class: "dgrid" }, j.moves.slice(0, 6).map(m => diagramEl(m.name, "exercise", "", true))),
+      j.practice ? el("p", {}, el("b", { text: "Practice the real thing: " }), j.practice) : "",
+      j.safety ? el("div", { class: "card safe" }, j.safety) : "",
+      el("div", { class: "pfoot" }, "For education and ideas only. Not a substitute for a doctor, dietitian or certified trainer.", el("br"), "Made with The Health Club on NuSparkLearnWow.com"));
+    d.append(doc);
+  }};
+}
+
+/* Nutrition Corner */
+function nutritionView(){
+  const v = { room: "nutrition", isRoom: true, bar: "Nutrition Corner", kind: "nutrition", tab: "choose" };
+  v.render = d => {
+    const tabs = Object.entries(NUTRITION).filter(([id, t]) => !(t.noKids && isKid()));
+    if (!tabs.some(([id]) => id === v.tab)) v.tab = "choose";
+    d.append(el("h2", { class: "vt", text: "🥗 Nutrition Corner" }), el("p", { class: "lead", text: "Food for health: how to choose, what's in it, and how eating styles compare. Explained, never preached." }), mate("lisa"),
+      el("div", { class: "tabs" }, tabs.map(([id, t]) => el("button", { type: "button", class: v.tab === id ? "on" : "", onclick: () => { v.tab = id; paint(v); } }, t.name))));
+    const t = NUTRITION[v.tab];
+    if (v.tab === "label") { labelReader(d); return; }
+    const list = isKid() && t.kids ? t.kids : t.topics;
+    d.append(searchRow("nuQ", "Type a food, drink or question", t.ex, "Explain It", q => show(topicView(q, "nutrition", v.tab))), chipRow(list, q => show(topicView(q, "nutrition", v.tab))));
+    if (v.tab === "styles") d.append(el("div", { class: "card tip" }, "Every eating style is explained fairly, with what the research says. Coach Lisa never picks a winner. If you have a health condition, talk with your doctor or a registered dietitian before changing how you eat."));
+    if (v.tab === "sensitivities") d.append(el("div", { class: "card tip" }, "Coach Lisa explains, but a diagnosis always comes from a doctor. If you think you might have celiac disease, get tested before cutting out gluten, because going gluten-free first can hide the results."));
+    d.append(el("p", { class: "ex", text: "Want to know how food is grown, made or cooked? That's The Food Hall on NuSparkLearnWow.com." }));
+  };
+  return v;
+}
+function labelReader(d){
+  let dataUrl = "";
+  const prev = el("div", {});
+  const out = el("div", {});
+  const file = el("input", { type: "file", accept: "image/*", id: "lblFile", style: "display:none" });
+  const go = el("button", { class: "btn", type: "button", disabled: "" }, "Read My Label");
+  file.addEventListener("change", () => {
+    const f = file.files && file.files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const max = 1600, sc = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      dataUrl = c.toDataURL("image/jpeg", .85);
+      prev.innerHTML = ""; prev.append(el("img", { src: dataUrl, alt: "Your label photo" }));
+      go.disabled = false; URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => { prev.innerHTML = ""; prev.append(errEl("That file didn't open as a photo. Try a JPG or PNG.")); };
+    img.src = URL.createObjectURL(f);
+  });
+  go.addEventListener("click", async () => {
+    if (!dataUrl) return;
+    go.disabled = true; out.innerHTML = ""; out.append(loadingEl("Coach Lisa is reading your label…", ["Finding the serving size…", "Converting sugar to teaspoons…", "Explaining the label words…"]));
+    try {
+      const j = await api({ mode: "label", image: dataUrl });
+      out.innerHTML = "";
+      if (!j.ok) { out.append(el("div", { class: "card", text: j.message })); go.disabled = false; return; }
+      out.append(el("h3", { text: "🏷️ " + (j.product || "Your label") }),
+        el("div", { class: "two" }, el("div", { class: "card" }, el("b", { text: "Serving size: " }), j.servingSize), el("div", { class: "card" }, el("b", { text: "Servings: " }), j.servings)),
+        j.sugarTsp ? el("div", { class: "card tip" }, el("b", { text: "🥄 Sugar in teaspoons: " }), j.sugarTsp) : null,
+        el("table", { class: "lt" }, el("tbody", {}, j.items.map(x => el("tr", {}, el("td", {}, x.label, el("div", { class: "ex", text: x.amount })), el("td", { text: x.meaning }))))),
+        j.dvNote ? el("p", { class: "ex", text: j.dvNote }) : null,
+        j.ingredients.length ? el("div", {}, el("h3", { text: "Ingredient list notes" }), el("ul", { class: "tidy" }, j.ingredients.map(x => el("li", {}, x)))) : null,
+        j.terms.length ? el("div", {}, el("h3", { text: "Label words explained" }), el("ul", { class: "tidy" }, j.terms.map(t => el("li", {}, el("b", { text: t.term + ": " }), t.meaning)))) : null,
+        j.bigPicture ? el("div", { class: "say" }, avatar("lisa"), el("div", { class: "bub" }, el("b", { text: "Coach Lisa's big picture", style: "color:" + GUIDE.lisa.color }), j.bigPicture)) : null,
+        j.kidFact ? el("div", { class: "card good" }, el("b", { text: "⭐ Fun fact: " }), j.kidFact) : null,
+        askBox({ context: "Label Reader result for " + (j.product || "a product") + ": " + j.items.map(x => x.label + " " + x.amount).join("; "), title: "Ask Coach Lisa about this label" }), eduNote(),
+        el("div", { class: "actions noprint" }, el("button", { class: "btn ghost", type: "button", onclick: printNow }, "🖨️ Print This")));
+    } catch(e){ out.innerHTML = ""; out.append(errEl(e.message)); }
+    go.disabled = false;
+  });
+  d.append(el("div", { class: "drop" }, el("div", { style: "font-size:40px", text: "📸" }), el("b", { text: "Snap or upload a photo of a Nutrition Facts label" }),
+    el("p", { class: "ex", text: "Tip: get close, in good light, with the whole panel in the frame. Coach Lisa explains the label; she never calls a food good or bad." }),
+    file, el("div", { class: "actions", style: "justify-content:center" }, el("button", { class: "btn alt", type: "button", onclick: () => file.click() }, "Choose Photo"), go), prev), out);
+}
+
+/* Lifestyle Lounge */
+function lifestyleView(){
+  return { room: "lifestyle", isRoom: true, bar: "Lifestyle Lounge", kind: "lifestyle", render(d){
+    d.append(el("h2", { class: "vt", text: "🛋️ Lifestyle Lounge" }), el("p", { class: "lead", text: "The everyday habits that make a big difference: sleep, stress, screens, posture and more." }), mate("lisa"),
+      searchRow("lsQ", "Type a healthy-habit topic", isKid() ? "bedtime routine, playing outside" : "better sleep, stress at work, standing desks", "Explain It", q => show(topicView(q, "lifestyle", "lifestyle"))),
+      chipRow(LIFESTYLE[state.zone] || LIFESTYLE.adults, q => show(topicView(q, "lifestyle", "lifestyle"))));
+  }};
+}
+
+/* topic explainer (Nutrition Corner + Lifestyle Lounge) */
+function topicView(topic, room, station){
+  const v = { room, bar: topic, kind: room, restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "topic", room, station, topic }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    d.append(el("div", { class: "printonly" }, el("b", { text: "The Health Club · NuSparkLearnWow.com" })));
+    if (v.err) return d.append(el("h2", { class: "vt", text: topic }), errEl(v.err));
+    if (!v.data) return d.append(el("h2", { class: "vt", text: topic }), loadingEl("Coach Lisa is researching " + topic + "…", ["Checking trusted health sources…", "Separating myths from facts…", "Writing it in plain English…"]));
+    const j = v.data;
+    if (!j.ok) return d.append(el("h2", { class: "vt", text: topic }), el("div", { class: "card", text: j.message }));
+    d.append(el("h2", { class: "vt", text: j.title }), el("p", { class: "lead", text: j.intro }));
+    j.sections.forEach(s => d.append(el("h3", { text: s.heading }), el("p", { text: s.text })));
+    if (j.tryThis.length) d.append(el("div", { class: "card good" }, el("b", { text: "💡 Ideas to try" }), el("ul", { class: "tidy" }, j.tryThis.map(x => el("li", {}, x)))));
+    if (j.myths.length) d.append(el("h3", { text: "🧱 Myth vs. fact" }), ...j.myths.map(m => el("div", { class: "card" }, el("span", { class: "pill c", text: "Myth" }), el("b", { text: m.myth }), el("div", {}, el("span", { class: "pill", text: "What's true" }), m.truth))));
+    if (j.research) d.append(el("div", { class: "say" }, avatar("data"), el("div", { class: "bub" }, el("b", { text: "What the research says", style: "color:" + GUIDE.data.color }), j.research)));
+    if (j.doctorNote) d.append(el("div", { class: "card safe" }, el("b", { text: "🩺 Talk with a doctor: " }), j.doctorNote));
+    const box = askBox({ context: () => "Topic: " + j.title + ". " + j.intro, title: "Ask the coaches about " + j.title });
+    if (j.followups.length) d.append(el("div", { class: "grp noprint", text: "People also ask" }), el("div", { class: "chips noprint" }, j.followups.map(f => el("button", { type: "button", onclick: () => box.ask(f) }, f))));
+    d.append(box, sourcesEl(j.sources, j.sourceNote), eduNote(),
+      el("div", { class: "actions noprint" }, el("button", { class: "btn ghost", type: "button", onclick: printNow }, "🖨️ Print This"), el("button", { class: "btn ghost", type: "button", onclick: pdfNow }, "📄 Download PDF")));
+  };
+  run();
+  return v;
+}
+
+/* Myth or Fact Wall */
+function mythView(){
+  const v = { room: "myth", isRoom: true, bar: "Myth or Fact Wall", kind: "myth", cat: "mixed", cards: null, err: null, seen: [], right: 0, done: 0, loading: false };
+  async function load(){
+    v.loading = true; v.err = null; v.cards = null; v.right = 0; v.done = 0; paint(v);
+    try { const j = await api({ mode: "myth", category: v.cat, avoid: v.seen }); if (!j.ok) v.err = j.message; else { v.cards = j.cards; v.seen.push(...j.cards.map(c => c.statement)); v.seen = v.seen.slice(-24); } } catch(e){ v.err = e.message; }
+    v.loading = false; if (state.view === v) paint(v);
+  }
+  v.restart = load;
+  v.render = d => {
+    d.append(el("h2", { class: "vt", text: "🧱 Myth or Fact Wall" }), el("p", { class: "lead", text: "Tap Myth, Fact or Partly for each card, then see what the research says." }),
+      el("div", { class: "tabs" }, [["mixed", "Mixed"], ["exercise", "Exercise"], ["food", "Food"], ["lifestyle", "Habits"]].map(([id, lab]) => el("button", { type: "button", class: v.cat === id ? "on" : "", onclick: () => { v.cat = id; load(); } }, lab))));
+    if (v.err) return d.append(errEl(v.err), el("button", { class: "btn", type: "button", onclick: load }, "Try Again"));
+    if (v.loading || !v.cards) { if (!v.loading) { setTimeout(load, 0); } return d.append(loadingEl("Coach Lisa is painting new cards on the wall…", ["Checking each one against the research…", "Almost ready…"])); }
+    const score = el("div", { class: "score", text: v.done ? "You got " + v.right + " of " + v.done : "Your score shows here" });
+    d.append(score, el("div", { class: "wall" }, v.cards.map(c => {
+      const card = el("div", { class: "mcard" + (c.picked ? (c.picked === c.answer ? " right" : " wrong") : "") }, el("div", { class: "st", text: "“" + c.statement + "”" }));
+      if (!c.picked) {
+        card.append(el("div", { class: "opts" }, [["myth", "Myth"], ["fact", "Fact"], ["partly", "Partly"]].map(([k, lab]) => el("button", { type: "button", onclick: () => { c.picked = k; v.done++; if (k === c.answer) v.right++; paint(v); } }, lab))));
+      } else {
+        const lab = { myth: "MYTH", fact: "FACT", partly: "PARTLY TRUE" }[c.answer];
+        card.append(el("div", { class: "verdict", style: "color:" + (c.picked === c.answer ? "var(--teal-dk)" : "var(--coral-dk)"), text: (c.picked === c.answer ? "✅ You got it! " : "❌ Not quite. ") + "It's " + lab }),
+          el("div", { text: c.explain }), c.source ? el("div", { class: "ex" }, "Source: ", el("a", { href: c.source.url, target: "_blank", rel: "noopener", text: c.source.title })) : null);
+      }
+      return card;
+    })), el("div", { class: "actions" }, el("button", { class: "btn", type: "button", onclick: load }, "🔄 New Cards")), eduNote());
+  };
+  return v;
+}
+
+/* The Great Debate */
+function debateView(){
+  return { room: "debate", isRoom: true, bar: "The Great Debate", kind: "debate", render(d){
+    d.append(el("h2", { class: "vt", text: "🎤 The Great Debate" }), el("p", { class: "lead", text: "Ask any health or fitness question. Coach Mike and Coach Lisa take different sides, Dr. Data brings the studies, and you get proof charts and the final word on the research." }),
+      el("div", { class: "coaches" }, mate("mike"), mate("lisa"), mate("data")),
+      searchRow("dbQ", "Your debate question", "Is it better to walk fast or walk longer?", "Start the Debate", q => show(debateRun(q))),
+      el("div", { class: "grp", text: "Starter questions" }), chipRow(DEBATES[state.zone] || DEBATES.adults, q => show(debateRun(q))));
+  }};
+}
+function makePlayer(lines, onStep, onDone){
+  let i = 0, timer = null;
+  const p = { paused: false, done: false,
+    step(){ if (i >= lines.length) { p.done = true; onDone(); return; } const ln = lines[i++]; onStep(ln); timer = setTimeout(p.step, Math.min(9000, 1800 + (ln.text ? ln.text.length * 32 : 1200))); },
+    toggle(){ if (p.done) return; p.paused = !p.paused; if (p.paused) clearTimeout(timer); else p.step(); const b = $("#pauseBtn"); if (b) b.textContent = p.paused ? "▶ Continue" : "⏸ Pause"; },
+    stop(){ clearTimeout(timer); p.paused = true; p.done = true; },
+    all(){ clearTimeout(timer); while (i < lines.length) onStep(lines[i++]); p.done = true; onDone(); }
+  };
+  return p;
+}
+function debateRun(question){
+  const v = { room: "debate", bar: "Live Debate", kind: "debate", pausable: true, restart: () => { v.data = null; v.err = null; v.played = false; play = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "debate", question }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    d.append(el("h2", { class: "vt", text: "🎤 " + (v.data && v.data.question || question) }));
+    if (v.err) return d.append(errEl(v.err));
+    if (!v.data) return d.append(loadingEl("The panel is researching before they take the stage…", ["Dr. Data is pulling the studies…", "Coach Mike is preparing his opening…", "Coach Lisa is checking her facts…", "Building the proof charts…"]));
+    const j = v.data;
+    if (!j.ok) return d.append(el("div", { class: "card", text: j.message }));
+    const podiums = el("div", { class: "podiums" }, ["mike", "lisa", "data"].map(id => el("div", { class: "pod", "data-id": id }, avatar(id), el("div", {}, el("b", { text: GUIDE[id].name }), el("small", { text: j.positions[id] || GUIDE[id].role })))));
+    const feed = el("div", {});
+    const after = el("div", {});
+    const showAll = el("button", { class: "btn ghost noprint", type: "button" }, "⏩ Show It All");
+    d.append(el("div", { class: "stage" }, podiums, feed), el("div", { class: "actions noprint" }, showAll), after);
+    const lines = [{ round: "Opening statements" }, ...j.opening];
+    j.rounds.forEach((r, k) => { lines.push({ round: k === 0 ? "Round 1: Rebuttals" : "Round 2: Final rebuttals" }); lines.push(...r); if (k === 0 && j.charts.length) lines.push({ charts: true }); });
+    if (!j.rounds.length && j.charts.length) lines.push({ charts: true });
+    const renderChart = c => {
+      const max = Math.max(...c.bars.map(b => Math.abs(b.value)), 1);
+      return el("div", { class: "chart" }, el("div", { class: "t", text: "📊 " + c.title }), c.unit ? el("div", { class: "ex", text: c.unit }) : null,
+        c.bars.map(b => el("div", { class: "bar" }, el("span", { text: b.label }), el("div", { class: "track" }, el("div", { class: "fill", style: "width:" + Math.max(3, Math.abs(b.value) / max * 100) + "%" })), el("b", { text: String(b.value) }))),
+        c.note ? el("div", { class: "ex", text: c.note }) : null, el("div", { class: "src" }, "Source: ", el("a", { href: c.source.url, target: "_blank", rel: "noopener", text: c.source.title })));
+    };
+    const step = ln => {
+      podiums.querySelectorAll(".pod").forEach(p => p.classList.toggle("talk", p.dataset.id === ln.id));
+      if (ln.round) feed.append(el("div", { class: "rnd", text: ln.round }));
+      else if (ln.charts) feed.append(el("div", { class: "rnd", text: "Dr. Data's proof charts" }), ...j.charts.map(renderChart));
+      else feed.append(el("div", { class: "dline" }, el("div", { class: "nm", style: "color:" + GUIDE[ln.id].color, text: GUIDE[ln.id].ico + " " + GUIDE[ln.id].name }), ln.text));
+    };
+    const finish = () => {
+      podiums.querySelectorAll(".pod").forEach(p => p.classList.remove("talk"));
+      showAll.remove();
+      const pb = $("#pauseBtn"); if (pb) { pb.disabled = true; pb.textContent = "⏸ Pause"; }
+      if (after.childNodes.length) return;
+      const wrap = el("div", {});
+      const showWrap = pick => {
+        wrap.innerHTML = "";
+        wrap.append(pick ? el("div", { class: "card good" }, el("b", { text: "Your vote: " }), pick) : null,
+          el("h3", { text: "🏁 The wrap-up" }), ...j.wrap.best.map(b => el("div", { class: "say" }, avatar(b.id), el("div", { class: "bub" }, el("b", { text: GUIDE[b.id].name + "'s best point", style: "color:" + GUIDE[b.id].color }), b.point))),
+          j.wrap.research ? el("div", { class: "card" }, el("b", { text: "📊 Dr. Data: what the research actually says. " }), j.wrap.research) : null,
+          j.wrap.bottomLine ? el("div", { class: "card tip" }, el("b", { text: "Bottom line: " }), j.wrap.bottomLine) : null);
+      };
+      const votes = j.vote.length ? j.vote : ["Coach Mike", "Coach Lisa", "It depends"];
+      after.append(el("h3", { class: "noprint", text: "🗳️ Cast your vote" }), el("div", { class: "votes noprint" }, votes.map(t => el("button", { type: "button", onclick: e => { e.currentTarget.parentNode.remove(); showWrap(t); } }, t)),
+        el("button", { type: "button", style: "background:#e6ecea", onclick: e => { e.currentTarget.parentNode.remove(); showWrap(""); } }, "Skip to the wrap-up")), wrap,
+        askBox({ panel: "debate", context: () => "Debate question: " + j.question + ". Positions: Mike - " + j.positions.mike + "; Lisa - " + j.positions.lisa + "; Dr. Data - " + j.positions.data, title: "Ask the panel a question" }),
+        sourcesEl(j.sources, j.sourceNote), eduNote(),
+        el("div", { class: "actions noprint" }, el("button", { class: "btn ghost", type: "button", onclick: printNow }, "🖨️ Print Transcript"), el("button", { class: "btn ghost", type: "button", onclick: () => download("debate-" + slug(j.question) + ".txt", transcript(j)) }, "⬇️ Download Transcript")));
+    };
+    if (!v.played) {
+      v.played = true;
+      play = makePlayer(lines, step, finish);
+      const pb = $("#pauseBtn"); if (pb) pb.disabled = false;
+      showAll.addEventListener("click", () => play.all());
+      play.step();
+    } else { // repaint (e.g. after Back): show everything at once
+      if (play) play.stop();
+      lines.forEach(step); finish();
+    }
+  };
+  run();
+  return v;
+}
+function transcript(j){
+  const L = [];
+  L.push("THE GREAT DEBATE (The Health Club, NuSparkLearnWow.com)", "Question: " + j.question, "");
+  L.push("OPENING STATEMENTS"); j.opening.forEach(o => L.push(GUIDE[o.id].name + ": " + o.text));
+  j.rounds.forEach((r, k) => { L.push("", k === 0 ? "ROUND 1" : "ROUND 2"); r.forEach(o => L.push(GUIDE[o.id].name + ": " + o.text)); });
+  if (j.charts.length) { L.push("", "PROOF CHARTS"); j.charts.forEach(c => { L.push(c.title + (c.unit ? " (" + c.unit + ")" : "")); c.bars.forEach(b => L.push("  " + b.label + ": " + b.value)); L.push("  Source: " + c.source.title + " " + c.source.url); }); }
+  L.push("", "WRAP-UP"); j.wrap.best.forEach(b => L.push(GUIDE[b.id].name + "'s best point: " + b.point));
+  if (j.wrap.research) L.push("What the research says: " + j.wrap.research);
+  if (j.wrap.bottomLine) L.push("Bottom line: " + j.wrap.bottomLine);
+  if (j.sources.length) { L.push("", "SOURCES"); j.sources.forEach(s => L.push("- " + s.title + " " + s.url)); }
+  L.push("", "For education and ideas only. Not a substitute for a doctor, dietitian or certified trainer.");
+  return L.join("\n");
+}
+
+/* The Planning Desk */
+const PLANS = {
+  routine: { em: "🗓️", name: "Sample Routine Ideas", text: "A sample week of workouts with diagrams, warm-up, cool-down and a 4-week progression." },
+  challenge: { em: "🏆", name: "Sample 30-Day Challenge", text: "Thirty check-off boxes that build a little each day." },
+  desk: { em: "💺", name: "Desk Stretch Sheet", text: "Stretches you can do at your desk, with diagrams.", noKids: true },
+  swap: { em: "🔄", name: "Food Swap Ideas", text: "Swap ideas based on the foods and drinks you like.", noKids: true }
+};
+function planView(){
+  return { room: "plan", isRoom: true, bar: "The Planning Desk", kind: "plan", render(d){
+    d.append(el("h2", { class: "vt", text: "📋 The Planning Desk" }), el("p", { class: "lead", text: "Answer a few quick questions and print a page of sample ideas. Ideas to learn from, not a personal plan." }), mate("lisa"),
+      el("div", { class: "rooms" }, Object.entries(PLANS).filter(([id, p]) => !(p.noKids && isKid())).map(([id, p]) => el("button", { type: "button", class: "room", onclick: () => show(planForm(id)) }, el("div", { class: "em", text: p.em }), el("b", { text: p.name }), el("span", { text: p.text })))));
+  }};
+}
+function planQuestions(kind){
+  const kid = isKid();
+  if (kind === "routine") return [
+    { k: "Goal", opts: kid ? ["Get stronger", "Play better at sports", "Have fun moving"] : state.zone === "fifty" ? ["Better balance", "Get stronger", "More energy", "Move more"] : ["Get stronger", "More energy", "Flexibility", "Move more", "Train for an event"] },
+    { k: "Days per week", opts: ["2", "3", "4", "5"] },
+    { k: "Where", opts: kid ? ["Inside at home", "Outside", "Playground or park"] : ["Gym", "Home with some equipment", "Home with no equipment", "Outdoors"] },
+    { k: "Level", opts: ["New to it", "Getting back into it", "Active now"] },
+    { k: "Equipment you have", multi: true, optional: true, opts: kid ? HOME_EQUIP_KIDS : HOME_EQUIP }];
+  if (kind === "challenge") return [
+    { k: "Challenge", opts: kid ? ["Jumping jacks", "Balance", "Drink water", "Stretching"] : ["Plank", "Daily steps", "Drink water", "Stretching", "Squats"] },
+    { k: "Level", opts: ["New to it", "Getting back into it", "Active now"] }];
+  if (kind === "desk") return [
+    { k: "Hours sitting per day", opts: ["Under 4", "4-6", "6-8", "8 or more"] },
+    { k: "Trouble spots", multi: true, opts: ["Neck", "Shoulders", "Upper back", "Lower back", "Wrists", "Hips", "Legs"] }];
+  if (kind === "swap") return [
+    { k: "Foods you like", text: true, ex: "pizza, chips, cereal, burgers" },
+    { k: "Drinks you like", text: true, ex: "soda, sweet coffee drinks, juice" },
+    { k: "Eating style or allergies (optional)", text: true, ex: "vegetarian, no nuts, lactose-free", optional: true }];
+  return [];
+}
+function planForm(kind, prefill){
+  const P = PLANS[kind];
+  const v = { room: "plan", bar: P.name, kind: "plan", answers: Object.assign({}, prefill || {}) };
+  v.render = d => {
+    const qs = planQuestions(kind);
+    const msg = el("div", {});
+    d.append(el("h2", { class: "vt", text: P.em + " " + P.name }), el("p", { class: "lead", text: "Quick questions, then Coach Lisa and Coach Mike put together a page of sample ideas you can print." }));
+    const form = el("div", { class: "form" }, qs.map(q => {
+      if (q.text) {
+        const inp = el("input", { type: "text", maxlength: "160", value: v.answers[q.k] || "", "aria-label": q.k });
+        inp.addEventListener("input", () => { v.answers[q.k] = inp.value; });
+        return el("div", { class: "q" }, el("b", { text: q.k }), el("p", { class: "ex", text: "For example: " + q.ex }), inp);
+      }
+      const row = el("div", { class: "chips" }, q.opts.map(o => {
+        const cur = v.answers[q.k]; const on = q.multi ? (cur || []).includes(o) : cur === o;
+        return el("button", { type: "button", class: on ? "on" : "", onclick: e => {
+          if (q.multi) { const a = v.answers[q.k] || []; v.answers[q.k] = a.includes(o) ? a.filter(x => x !== o) : a.concat(o); e.currentTarget.classList.toggle("on"); }
+          else { v.answers[q.k] = o; row.querySelectorAll("button").forEach(b => b.classList.toggle("on", b === e.currentTarget)); }
+        } }, o);
+      }));
+      return el("div", { class: "q" }, el("b", { text: q.k + (q.multi ? " (pick any)" : "") }), row);
+    }));
+    const go = el("button", { class: "btn", type: "button", onclick: () => {
+      const missing = qs.filter(q => !q.optional && !(q.multi ? (v.answers[q.k] || []).length : String(v.answers[q.k] || "").trim()));
+      if (Array.isArray(v.answers["Equipment you have"]) && !v.answers["Equipment you have"].length) delete v.answers["Equipment you have"];
+      if (missing.length) { msg.innerHTML = ""; msg.append(errEl("Please answer: " + missing.map(q => q.k).join(", "))); return; }
+      show(planResult(kind, Object.assign({}, v.answers)));
+    } }, "Make My Sample Page");
+    d.append(form, msg, el("div", { class: "actions" }, go), el("p", { class: "ex", text: "Sample ideas for learning only, not a personal plan. Check with your doctor before starting something new if you have any health concerns." }));
+  };
+  return v;
+}
+function planResult(kind, answers){
+  const v = { room: "plan", bar: PLANS[kind].name, kind: "plan", restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "plan", kind, answers }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    if (v.err) return d.append(el("h2", { class: "vt", text: PLANS[kind].name }), errEl(v.err));
+    if (!v.data) return d.append(el("h2", { class: "vt", text: PLANS[kind].name }), loadingEl("The coaches are putting your sample page together…", ["Picking moves that fit your answers…", "Laying out the week…", "Almost ready to print…"]));
+    const j = v.data;
+    if (!j.ok) return d.append(el("div", { class: "card", text: j.message || "Please try again." }));
+    d.append(el("div", { class: "actions noprint" }, el("button", { class: "btn", type: "button", onclick: printNow }, "🖨️ Print"), el("button", { class: "btn alt", type: "button", onclick: pdfNow }, "📄 Download PDF"), el("button", { class: "btn ghost", type: "button", onclick: () => show(planForm(kind)) }, "✏️ Change Answers")));
+    const doc = el("div", { class: "pdoc" });
+    const head = el("div", { class: "phead" }); shuffle(bannerPhotos).slice(0, 5).forEach(p => head.append(el("img", { src: p.src, alt: "" })));
+    doc.append(bannerPhotos.length ? head : "", el("div", { class: "brand", text: "The Health Club · Learn...Wow! · NuSparkLearnWow.com" }), el("h2", { text: j.title || PLANS[kind].name }), el("p", { text: j.intro }));
+    const names = [];
+    if (kind === "routine") {
+      doc.append(el("h3", { text: "Your sample week" }), el("div", { class: "cal" }, j.week.map(day => el("div", {}, el("b", { text: day.day }), day.focus))));
+      if (j.warmup.length) doc.append(el("h3", { text: "Warm-up (about 5 minutes)" }), el("ul", { class: "tidy" }, j.warmup.map(x => el("li", {}, el("b", { text: x.name }), " — " + x.amount))));
+      j.week.filter(day => day.items.length).forEach(day => {
+        doc.append(el("h3", { text: day.day + ": " + day.focus }), el("table", {}, el("thead", {}, el("tr", {}, el("th", { text: "Move" }), el("th", { text: "Sample amount" }), el("th", { text: "Form cue" }), el("th", { text: "Done" }))),
+          el("tbody", {}, day.items.map(x => { if (!names.includes(x.name)) names.push(x.name); return el("tr", {}, el("td", { text: x.name }), el("td", { text: x.amount }), el("td", { text: x.cue }), el("td", {}, el("span", { class: "box" }))); }))));
+      });
+      if (j.cooldown.length) doc.append(el("h3", { text: "Cool-down stretches" }), el("ul", { class: "tidy" }, j.cooldown.map(x => el("li", {}, el("b", { text: x.name }), " — " + x.amount))));
+      if (j.progression.length) doc.append(el("h3", { text: "4-week progression ideas" }), el("table", {}, el("tbody", {}, j.progression.map((p, i) => el("tr", {}, el("th", { text: "Week " + (i + 1) }), el("td", { text: p.replace(/^week\s*\d+\s*[:\-–]\s*/i, "") }))))));
+      if (j.habits.length) doc.append(el("h3", { text: "Healthy-habit checklist" }), el("div", {}, j.habits.map(h => el("div", { style: "margin:4px 0" }, el("span", { class: "box" }), h))));
+    } else if (kind === "challenge") {
+      doc.append(el("div", { class: "cal" }, j.days.map(x => el("div", {}, el("b", {}, el("span", { class: "box" }), "Day " + x.day), x.target))));
+      if (j.tips.length) doc.append(el("h3", { text: "Tips" }), el("ul", { class: "tidy" }, j.tips.map(t => el("li", {}, t))));
+    } else if (kind === "desk") {
+      doc.append(el("table", {}, el("thead", {}, el("tr", {}, el("th", { text: "Stretch" }), el("th", { text: "How" }), el("th", { text: "Hold" }))), el("tbody", {}, j.stretches.map(x => { names.push(x.name); return el("tr", {}, el("td", {}, el("b", { text: x.name })), el("td", { text: x.how }), el("td", { text: x.hold })); }))));
+      if (j.schedule) doc.append(el("p", {}, el("b", { text: "When: " }), j.schedule));
+    } else if (kind === "swap") {
+      doc.append(el("table", {}, el("thead", {}, el("tr", {}, el("th", { text: "Instead of" }), el("th", { text: "Try" }), el("th", { text: "What's different" }))), el("tbody", {}, j.swaps.map(x => el("tr", {}, el("td", { text: x.instead }), el("td", {}, el("b", { text: x.try })), el("td", { text: x.why }))))));
+      if (j.tips.length) doc.append(el("h3", { text: "Tips" }), el("ul", { class: "tidy" }, j.tips.map(t => el("li", {}, t))));
+    }
+    if (names.length) {
+      const pick = names.slice(0, 8);
+      doc.append(el("h3", { text: "How to do the moves" }), el("div", { class: "dgrid" }, pick.map(n => diagramEl(n, kind === "desk" || /stretch|pose|twist|roll|circle|cat-cow|reach/i.test(n) ? "stretch" : "exercise", kind === "desk" ? "A stretch done seated at or standing beside a desk." : "", true))));
+      if (names.length > 8) doc.append(el("p", { class: "ex", text: "More moves? Look them up on The Gym Floor for full steps and diagrams." }));
+    }
+    if (j.note) doc.append(el("div", { class: "card safe" }, j.note));
+    doc.append(el("div", { class: "pfoot" }, j.footer || "For education and ideas only. Not a substitute for a doctor, dietitian or certified trainer.", el("br"), "Made with The Health Club on NuSparkLearnWow.com"));
+    d.append(doc);
+  };
+  run();
+  return v;
+}
+
+/* ---------- start ---------- */
+buildBanner();
+state.view = homeView(); paint(state.view);
+
+/* tell the website page how tall the tool is, so there is no inner scroll bar */
+(function(){
+  if (window.parent === window) return;
+  let last = 0;
+  const send = () => {
+    const h = Math.ceil(document.body.getBoundingClientRect().height) + 20;
+    if (Math.abs(h - last) > 4) { last = h; try { window.parent.postMessage({ lwToolHeight: h }, "*"); } catch(e){} }
+  };
+  if (window.ResizeObserver) new ResizeObserver(send).observe(document.body);
+  window.addEventListener("load", send);
+  setInterval(send, 1500);
+  send();
+})();
+</script>
+</body>
+</html>
