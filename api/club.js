@@ -2,6 +2,7 @@
 // One endpoint, several modes:
 //   exercise — how to do an exercise (steps, breathing, mistakes, easier/harder, sample ranges), source-checked
 //   machine  — how to set up and use a gym machine, source-checked
+//   game     — Recess Games: how to play a classic active game (kids and families)
 //   reallife — Train for Real Life: muscles and moves behind an everyday task
 //   home     — The Home Gym: moves that use the equipment the visitor has at home
 //   muscle   — Body Map: what a muscle does and exercises that work it
@@ -254,6 +255,27 @@ Shape:
  "followups": ["3 short follow-up questions a visitor might ask next"],
  ${sourcesShape}}
 Give 4-8 steps, 1-3 easier and 1-3 harder versions, 2-3 deeper sections. If the request is off-topic or unsafe, reply {"ok": false, "message": "kind one-sentence explanation"}.`;
+  }
+
+  if (mode === "game") {
+    const game = S(b.game, 120);
+    if (!game) return null;
+    return `${zl}
+RECESS GAMES. Explain how to play this active game: "${game}". It is for kids, or families playing together. Keep it fun, simple and safe; no elimination games that leave kids sitting out for long (suggest a version where everyone keeps playing).
+Shape:
+{"ok": true,
+ "title": "the game's name",
+ "intro": "2 sentences: what the game is and why it's fun",
+ "players": "e.g. 4 or more players",
+ "space": "e.g. a backyard, gym or park",
+ "time": "e.g. 10-15 minutes",
+ "need": ["items needed, or 'Nothing at all'"],
+ "steps": [{"title": "short step name", "text": "1-2 simple sentences"}],
+ "builds": ["2-4 things it builds, e.g. Speed, Balance, Teamwork"],
+ "variations": ["2-4 ways to switch it up, including an easier version for little kids and an indoor or small-space version"],
+ "safety": "one or two sentences",
+ "fun": "one short, true fun fact about the game or the skill (empty string if unsure)"}
+4-7 steps. If it isn't an active game, reply {"ok": false, "message": "kind one-sentence explanation"}.`;
   }
 
   if (mode === "reallife") {
@@ -523,12 +545,22 @@ module.exports = async (req, res) => {
   try {
     // ---- quick modes (no web search)
     if (mode === "diagram") {
-      let text = textOf(await anthropic([{ role: "user", content: prompt }], 0, DIAGRAM_MODEL, 7000));
+      // the stronger model may think before drawing, so it gets a big token budget; if it still fails, the fast model tries
+      const t0 = Date.now();
+      let text = "";
+      try { text = textOf(await anthropic([{ role: "user", content: prompt }], 0, DIAGRAM_MODEL, /haiku/i.test(DIAGRAM_MODEL) ? 7000 : 20000)); } catch (e) { console.error(e); }
       let svg = cleanSvg(text);
-      if (!svg && DIAGRAM_MODEL !== MODEL) { text = textOf(await anthropic([{ role: "user", content: prompt }], 0, MODEL, 9000)); svg = cleanSvg(text); }
+      if (!svg && DIAGRAM_MODEL !== FAST_MODEL && Date.now() - t0 < 80000) { text = textOf(await anthropic([{ role: "user", content: prompt }], 0, FAST_MODEL, 7000)); svg = cleanSvg(text); }
       const cap = (text.match(/CAPTION:\s*([^\n<]+)/i) || [])[1] || "";
       if (!svg) return res.status(200).json({ ok: false, message: "The diagram didn't come out right. Tap Try Again." });
       return res.status(200).json({ ok: true, svg, caption: clip(cap, 240) });
+    }
+    if (mode === "game") {
+      const j = extractJson(textOf(await anthropic([{ role: "user", content: prompt }], 0, MODEL, 3000))) || {};
+      const steps = cleanSteps(j.steps, 8);
+      if (j.ok === false || !steps.length) return res.status(200).json({ ok: false, message: clip(j.message, 300) || "Coach Mike couldn't find the rules for that one. Try another game." });
+      return res.status(200).json({ ok: true, title: clip(j.title, 80) || clip(b.game, 80), intro: clip(j.intro, 400), players: clip(j.players, 60), space: clip(j.space, 80), time: clip(j.time, 60),
+        need: clipList(j.need, 6, 80), steps, builds: clipList(j.builds, 4, 40), variations: clipList(j.variations, 4, 240), safety: clip(j.safety, 300), fun: clip(j.fun, 300) });
     }
     if (mode === "home") {
       const j = extractJson(textOf(await anthropic([{ role: "user", content: prompt }], 0, MODEL, 3500))) || {};
