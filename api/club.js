@@ -253,8 +253,10 @@ Shape:
  "coachTip": "one memorable tip from Coach Mike",
  "deeper": [{"heading": "a deeper-learning heading, e.g. Why form matters, How it helps everyday life", "text": "3-5 sentences"}],
  "followups": ["3 short follow-up questions a visitor might ask next"],
+ "closestDiagram": "the ONE name from the diagram list below whose body position and movement look most like this ${isMachine ? "machine exercise" : "exercise"}, copied exactly; empty string if none is a close visual match",
  ${sourcesShape}}
-Give 4-8 steps, 1-3 easier and 1-3 harder versions, 2-3 deeper sections. If the request is off-topic or unsafe, reply {"ok": false, "message": "kind one-sentence explanation"}.`;
+Give 4-8 steps, 1-3 easier and 1-3 harder versions, 2-3 deeper sections.
+Diagram list: ${(Array.isArray(b.libNames) ? b.libNames : []).slice(0, 120).map(x => S(x, 60)).join("; ")} If the request is off-topic or unsafe, reply {"ok": false, "message": "kind one-sentence explanation"}.`;
   }
 
   if (mode === "game") {
@@ -634,6 +636,7 @@ module.exports = async (req, res) => {
         setup: clipList(j.setup, 6, 300), steps, breathing: clip(j.breathing, 300), mistakes: clipList(j.mistakes, 6, 300),
         easier: cleanNamed(j.easier, 3), harder: cleanNamed(j.harder, 3), sample: clip(j.sample, 300), safety: clip(j.safety, 400),
         coachTip: clip(j.coachTip, 300), deeper: cleanSecs(j.deeper, 3), followups: clipList(j.followups, 3, 140),
+        closestDiagram: (Array.isArray(b.libNames) ? b.libNames : []).includes(j.closestDiagram) ? j.closestDiagram : "",
         sources, sourceNote: sources.length ? "" : NO_SOURCES, footer: FOOTER_NOTE
       });
     }
