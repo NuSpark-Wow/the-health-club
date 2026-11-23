@@ -344,7 +344,7 @@ const ROOMS = [
   { id: "plan",      em: "📋", name: "The Planning Desk", guide: "lisa", text: "Answer a few quick questions and print sample ideas: routines, challenges and more." }
 ];
 const BAR_RIGHT = { home: "Open Daily", reallife: "Coach Mike", homegym: "Coach Mike", gym: "Coach Mike", machines: "Coach Mike", bodymap: "Coach Mike", nutrition: "Coach Lisa", lifestyle: "Coach Lisa", myth: "Test Yourself", debate: "Live Debate", plan: "Printables" };
-const BANNER = ["Push-up", "Squat (exercise)", "Yoga", "Walking", "Stretching", "Vegetable", "Treadmill", "Leg press", "Mediterranean diet", "Swimming (sport)", "Plank (exercise)", "Fruit", "Jogging", "Dumbbell", "Nordic walking", "Water"];
+const BANNER = ["Walking", "Jogging", "Pilates", "Nordic walking", "Aerobics", "Weight training", "Running", "Cycling", "Zumba", "Lunge (exercise)", "Jumping jack", "Sit-up", "Crunch (exercise)", "Plank (exercise)", "Bench press", "Deadlift", "Personal trainer", "Group fitness", "Water aerobics", "Dance", "Skipping rope", "Exercise", "Rowing (sport)"];
 
 const EXERCISES = {
   adults: { "Core": ["Plank", "Crunch", "Sit-up", "Dead bug", "Bird dog", "Side plank"], "Upper body": ["Push-up", "Dumbbell biceps curl", "Triceps dip", "Overhead press", "Bent-over row", "Lateral raise"], "Lower body": ["Bodyweight squat", "Lunge", "Glute bridge", "Calf raise", "Step-up", "Romanian deadlift"], "Cardio": ["Jumping jacks", "Brisk walking", "Jump rope", "High knees", "Mountain climbers", "Stair climbing"], "Stretches": ["Hamstring stretch", "Hip flexor stretch", "Chest doorway stretch", "Child's pose", "Cat-cow", "Standing quad stretch"] },
@@ -472,19 +472,20 @@ function wikiPhoto(title, size){
 }
 const bannerPhotos = [];
 function buildBanner(){
+  // 8 photos of people being active; if a photo doesn't load, the slot tries the next one so there are no blanks
   const b = $("#banner");
-  shuffle(BANNER).slice(0, 8).forEach(t => {
-    const fig = el("figure", {}); b.append(fig);
-    wikiPhoto(t, 400).then(p => {
-      if (!p) return;
-      bannerPhotos.push(p);
-      const img = el("img", { src: p.src, alt: "" });
-      img.onload = () => img.classList.add("on");
-      fig.append(img, el("figcaption", { text: p.title }));
-    });
-  });
+  const queue = shuffle(BANNER);
+  const fill = async fig => {
+    while (queue.length) {
+      const p = await wikiPhoto(queue.shift(), 400);
+      if (!p) continue;
+      const ok = await new Promise(res => { const img = el("img", { src: p.src, alt: "" }); img.onload = () => { img.classList.add("on"); fig.append(img, el("figcaption", { text: p.title.replace(/\s*\(.*?\)/g, "") })); res(true); }; img.onerror = () => res(false); });
+      if (ok) { bannerPhotos.push(p); return; }
+    }
+    fig.remove();
+  };
+  for (let i = 0; i < 8; i++) { const fig = el("figure", {}); b.append(fig); fill(fig); }
 }
-
 /* ---------- screen, navigation and the control bar ---------- */
 const state = { view: null, stack: [], zone: "adults" };
 const display = $("#display");
