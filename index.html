@@ -335,6 +335,7 @@ const ROOMS = [
   { id: "gym",       em: "🏋️", name: "The Gym Floor",     guide: "mike", text: "How to do an exercise, with diagrams, mistakes to avoid and easier or harder versions." },
   { id: "homegym",   em: "🏠", name: "The Home Gym",      guide: "mike", text: "No gym? No problem. Tap what you have at home (mat, chair, bands) and get moves that use it." },
   { id: "machines",  em: "⚙️", name: "The Machine Room",  guide: "mike", text: "Typical gym machines: how to set them up and use them.", noKids: true },
+  { id: "recess",    em: "🤸", name: "Recess Games",      guide: "mike", text: "Classic active games like tag, hopscotch and relay races: how to play and what they build.", kidsOnly: true },
   { id: "bodymap",   em: "🫀", name: "Body Map",          guide: "mike", text: "Tap a muscle to learn what it does and the moves that work it." },
   { id: "reallife",  em: "🛒", name: "Train for Real Life", guide: "mike", text: "Pick an everyday goal, like getting up off the floor, and see the muscles and moves that build it." },
   { id: "nutrition", em: "🥗", name: "Nutrition Corner",  guide: "lisa", text: "How to choose foods and drinks, eating styles explained, gluten, and the Label Reader." },
@@ -343,7 +344,52 @@ const ROOMS = [
   { id: "debate",    em: "🎤", name: "The Great Debate",  guide: "data", text: "Ask a health question and watch the coaches and Dr. Data debate it, with proof charts." },
   { id: "plan",      em: "📋", name: "The Planning Desk", guide: "lisa", text: "Answer a few quick questions and print sample ideas: routines, challenges and more." }
 ];
-const BAR_RIGHT = { home: "Open Daily", reallife: "Coach Mike", homegym: "Coach Mike", gym: "Coach Mike", machines: "Coach Mike", bodymap: "Coach Mike", nutrition: "Coach Lisa", lifestyle: "Coach Lisa", myth: "Test Yourself", debate: "Live Debate", plan: "Printables" };
+/* card descriptions change with the zone, so the lobby shows what each room offers this visitor */
+const ROOM_TEXT = {
+  fifty: {
+    gym: "Gentle strength and balance moves, with diagrams. Easier versions come first.",
+    homegym: "Chair, wall and band moves you can do safely in your living room.",
+    machines: "The friendliest gym machines for strength and joints: how to set them up and use them.",
+    bodymap: "Tap a muscle to learn what keeps you strong, steady and moving well.",
+    reallife: "Get up off the floor, carry groceries, play with the grandkids: see the moves that build it.",
+    nutrition: "Food choices for healthy aging, eating styles explained, and the Label Reader.",
+    lifestyle: "Sleep, staying active, fall prevention at home and healthy habits after 50.",
+    myth: "Health myths about aging, joints, sleep and food: myth or fact?",
+    debate: "Questions like \"Walking or swimming for joints?\" debated, with proof charts.",
+    plan: "Print sample ideas: a gentle routine, a 30-day challenge, desk stretches and food swaps."
+  },
+  kids: {
+    gym: "Animal moves, jumping games and strong-kid moves, with pictures.",
+    homegym: "Fun moves at home with a ball, pillows, a jump rope or a hula hoop.",
+    recess: "Tag, hopscotch, relay races and more: how to play and what each game builds.",
+    bodymap: "Tap a body part to see what it does and how to make it strong.",
+    reallife: "Climb the monkey bars, run faster, do a cartwheel: see how to get there.",
+    nutrition: "Eat the rainbow, fun food facts, smart drinks and the Label Reader.",
+    lifestyle: "Sleep, screen time, playing outside and calm-down breathing.",
+    myth: "Silly health myths: true or false? Test yourself!",
+    debate: "Kid questions like \"Should kids drink sports drinks?\" debated by the coaches.",
+    plan: "Print a fun moving plan or a 30-day challenge with check-off boxes."
+  },
+  family: {
+    gym: "Moves parents and kids can do side by side, with diagrams.",
+    homegym: "Family moves at home with whatever you have: a mat, a ball, a chair.",
+    recess: "Active family games like tag, relay races and obstacle courses: how to play.",
+    bodymap: "Tap a muscle together and learn what it does and the moves that work it.",
+    reallife: "Family goals like a hike together or keeping up at the park: the moves that build them.",
+    nutrition: "Smart food and drink choices for the whole family, and the Label Reader.",
+    lifestyle: "Family screen-time ideas, sleep routines and active weekends.",
+    myth: "Health myths the whole family hears: myth or fact?",
+    debate: "Family questions like \"How much screen time is OK?\" debated, with proof charts.",
+    plan: "Print a family moving plan or a 30-day challenge to do together."
+  }
+};
+const ZONE_NOTE = {
+  adults: "You're in the Adults zone: the full club, every room open.",
+  fifty: "You're in the 50+ Corner: every room is set for balance, strength and joint-friendly moves.",
+  kids: "You're in the Kids' Playground: fun moves, games and food facts, made for ages 5-12. Grown-ups, stay close!",
+  family: "You're in Family Workout: every room is set for parents and kids to do together."
+};
+const BAR_RIGHT = { recess: "Coach Mike", home: "Open Daily", reallife: "Coach Mike", homegym: "Coach Mike", gym: "Coach Mike", machines: "Coach Mike", bodymap: "Coach Mike", nutrition: "Coach Lisa", lifestyle: "Coach Lisa", myth: "Test Yourself", debate: "Live Debate", plan: "Printables" };
 const BANNER = ["Walking", "Jogging", "Pilates", "Nordic walking", "Aerobics", "Weight training", "Running", "Cycling", "Zumba", "Lunge (exercise)", "Jumping jack", "Sit-up", "Crunch (exercise)", "Plank (exercise)", "Bench press", "Deadlift", "Personal trainer", "Group fitness", "Water aerobics", "Dance", "Skipping rope", "Exercise", "Rowing (sport)"];
 
 const EXERCISES = {
@@ -532,7 +578,7 @@ function closeView(){
   else goHome();
 }
 function roomView(id){
-  return ({ reallife: realLifeView, homegym: homeGymView, gym: gymView, machines: machineRoomView, bodymap: bodyMapView, nutrition: nutritionView, lifestyle: lifestyleView, myth: mythView, debate: debateView, plan: planView })[id]();
+  return ({ recess: recessView, reallife: realLifeView, homegym: homeGymView, gym: gymView, machines: machineRoomView, bodymap: bodyMapView, nutrition: nutritionView, lifestyle: lifestyleView, myth: mythView, debate: debateView, plan: planView })[id]();
 }
 function chipRow(list, onPick){ return el("div", { class: "chips" }, list.map(t => el("button", { type: "button", onclick: () => onPick(t) }, t))); }
 function searchRow(id, label, ex, btnText, onGo){
@@ -553,10 +599,11 @@ function homeView(){
       el("div", { class: "zones", role: "group", "aria-label": "Age zone" }, Object.entries(ZONES).map(([id, z]) =>
         el("button", { type: "button", class: "zone" + (state.zone === id ? " on" : ""), "aria-pressed": state.zone === id ? "true" : "false", onclick: () => { state.zone = id; paint(state.view); } },
           el("span", { class: "em", text: z.em }), z.name, el("small", { text: z.sub })))),
+      el("div", { class: "card good", style: "margin:0 0 14px;font-weight:700", text: ZONE_NOTE[state.zone] }),
       el("div", { class: "grp", text: "2. Pick a room" }),
-      el("div", { class: "rooms" }, ROOMS.filter(r => !(r.noKids && isKid())).map(r =>
+      el("div", { class: "rooms" }, ROOMS.filter(r => !(r.noKids && isKid()) && !(r.kidsOnly && !isKid())).map(r =>
         el("button", { type: "button", class: "room", onclick: () => show(roomView(r.id)) },
-          el("div", { class: "em", text: r.em }), el("b", { text: r.name }), el("span", { text: r.id === "nutrition" && isKid() ? "How to choose foods and drinks, fun food facts, and the Label Reader." : r.text }), el("i", { text: GUIDE[r.guide].name })))),
+          el("div", { class: "em", text: r.em }), el("b", { text: r.name }), el("span", { text: (ROOM_TEXT[state.zone] && ROOM_TEXT[state.zone][r.id]) || r.text }), el("i", { text: GUIDE[r.guide].name })))),
       askBox({ context: "The visitor is in the lobby of The Health Club.", title: "Ask the coaches anything about exercise, food or healthy habits", ex: "How do I start exercising again after a long break?" })
     );
   }};
@@ -618,7 +665,7 @@ function getDiagram(name, kind, hint){
 function diagramEl(name, kind, hint, small){
   const box = el("div", { class: "diagram" });
   const load = () => {
-    box.innerHTML = ""; box.append(loadingEl(small ? "Drawing " + name + "…" : "Coach Mike is drawing the diagram…"));
+    box.innerHTML = ""; box.append(loadingEl(small ? "Drawing " + name + "…" : "Coach Mike is drawing the diagram…", ["New moves are drawn fresh, so this can take up to a minute…", "Getting the pose just right…"]));
     getDiagram(name, kind, hint).then(j => {
       box.innerHTML = "";
       if (!j.ok) { box.append(el("div", { class: "ph", text: j.message || "The diagram didn't come out right." }), el("button", { class: "btn ghost noprint", type: "button", onclick: load }, "Try Again")); return; }
@@ -821,6 +868,44 @@ function muscleView(name){
       j.stretch ? el("div", { class: "card" }, el("b", { text: "🧘 Stretch it: " + j.stretch.name + ". " }), j.stretch.how, " ", el("button", { class: "btn ghost", type: "button", style: "padding:6px 12px;font-size:14px", onclick: () => show(lessonView(j.stretch.name, "exercise", "bodymap")) }, "Show me")) : null,
       j.tip ? el("div", { class: "say" }, avatar("mike"), el("div", { class: "bub" }, el("b", { text: "Coach Mike's tip", style: "color:" + GUIDE.mike.color }), j.tip)) : null,
       askBox({ context: "Body Map, muscle: " + name, title: "Ask about the " + name }), eduNote());
+  };
+  run();
+  return v;
+}
+
+/* Recess Games (Kids' Playground and Family Workout) */
+const RECESS = {
+  "Running games": ["Tag", "Freeze tag", "Red light, green light", "Relay race", "Capture the flag", "Sharks and minnows"],
+  "Jumping & skipping": ["Hopscotch", "Jump rope games", "Hula hoop", "Sack race", "Leapfrog", "Potato sack hop"],
+  "Moving & listening": ["Simon says", "Freeze dance", "Follow the leader", "Musical chairs", "Animal walk race", "Mirror moves"],
+  "Bigger setups": ["Obstacle course", "Scavenger hunt", "Kickball", "Four square", "Partner high-five plank", "Wheelbarrow walk"]
+};
+function recessView(){
+  return { room: "recess", isRoom: true, bar: "Recess Games", kind: "recess", render(d){
+    d.append(el("h2", { class: "vt", text: "🤸 Recess Games" }), el("p", { class: "lead", text: "Classic active games: how to play, how many players, the space you need, and what each game builds." }), mate("mike"),
+      searchRow("rcQ", "Type a game", "tag, kickball, red rover", "How Do We Play?", g => show(gameView(g))));
+    Object.entries(RECESS).forEach(([grp, list]) => d.append(el("div", { class: "grp", text: grp }), chipRow(list, g => show(gameView(g)))));
+  }};
+}
+function gameView(game){
+  const v = { room: "recess", bar: game, kind: "recess", restart: () => { v.data = null; v.err = null; paint(v); run(); } };
+  async function run(){ try { v.data = await api({ mode: "game", game }); } catch(e){ v.err = e.message; } if (state.view === v) paint(v); }
+  v.render = d => {
+    d.append(el("div", { class: "printonly" }, el("b", { text: "The Health Club · Recess Games · NuSparkLearnWow.com" })));
+    if (v.err) return d.append(el("h2", { class: "vt", text: game }), errEl(v.err));
+    if (!v.data) return d.append(el("h2", { class: "vt", text: "🤸 " + game }), loadingEl("Coach Mike is getting the game ready…", ["Counting players…", "Setting up the play area…", "Writing the rules…"]));
+    const j = v.data;
+    if (!j.ok) return d.append(el("h2", { class: "vt", text: game }), el("div", { class: "card", text: j.message }));
+    d.append(el("h2", { class: "vt", text: "🤸 " + j.title }), el("p", { class: "lead", text: j.intro }),
+      el("div", {}, j.players ? el("span", { class: "pill", text: "👥 " + j.players }) : null, j.space ? el("span", { class: "pill", text: "📍 " + j.space }) : null, j.time ? el("span", { class: "pill", text: "⏱️ " + j.time }) : null),
+      j.need.length ? el("div", { class: "card" }, el("b", { text: "🧰 What you need: " }), j.need.join(", ")) : null,
+      el("h3", { text: "📋 How to play" }), el("ol", { class: "steps" }, j.steps.map(x => el("li", {}, el("b", { text: x.title }), x.text))),
+      j.builds.length ? el("div", { class: "card good" }, el("b", { text: "💪 What it builds: " }), j.builds.join(" · ")) : null,
+      j.variations.length ? el("div", {}, el("h3", { text: "🔄 Ways to switch it up" }), el("ul", { class: "tidy" }, j.variations.map(x => el("li", {}, x)))) : null,
+      j.safety ? el("div", { class: "card safe" }, el("b", { text: "⚠️ Play it safe: " }), j.safety) : null,
+      j.fun ? el("div", { class: "card tip" }, el("b", { text: "✨ Wow...Who Knew? " }), j.fun) : null,
+      askBox({ context: "Recess game: " + j.title, title: "Ask Coach Mike about " + j.title }), eduNote(),
+      el("div", { class: "actions noprint" }, el("button", { class: "btn ghost", type: "button", onclick: printNow }, "🖨️ Print the Rules")));
   };
   run();
   return v;
