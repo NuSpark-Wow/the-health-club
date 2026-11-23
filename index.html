@@ -673,7 +673,7 @@ function getDiagram(name, kind, hint, opts){
     if (!opts.live) {
       const hit = libHit(L, name);
       if (hit) return { ok: true, svg: L.d[hit].svg, caption: L.d[hit].caption, library: true };
-      const sim = libSimilar(L, name) || (opts.closest && libHit(L, opts.closest));
+      const sim = (opts.closest && libHit(L, opts.closest)) || libSimilar(L, name);
       if (sim) return { ok: true, svg: L.d[sim].svg, caption: "Closest diagram: " + L.d[sim].title + ". The movement pattern is very similar.", library: true, similar: L.d[sim].title };
       return { ok: false, none: true };
     }
